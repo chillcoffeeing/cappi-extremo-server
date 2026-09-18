@@ -2,6 +2,7 @@
 
 namespace App\Actions\Onboarding;
 
+use App\Actions\Inscriptions\CalculateInscriptionTotal;
 use App\Models\OnboardingDraft;
 use App\Models\Enrollment;
 use App\Models\Order;
@@ -29,9 +30,11 @@ class CompleteOnboarding
         DB::transaction(function () use ($draft): void {
             $participants = $draft->data['participantes']['participantes'] ?? [];
             $accountData = $draft->data['cuenta'] ?? [];
-            $planData = $accountData['plan'] ?? [];
+            $planId = (string) ($accountData['planId'] ?? '');
             $paymentData = $draft->data['pago']['pago'] ?? $draft->data['pago'] ?? [];
-            $plan = Plan::where('name', $planData['nombre'] ?? '')->first();
+            $plan = $planId !== ''
+                ? Plan::where('uuid', $planId)->operative()->first()
+                : null;
             $validParticipants = [];
 
             foreach ($participants as $participant) {
@@ -51,8 +54,8 @@ class CompleteOnboarding
                         ->first()
                     : $draft->user->participants()->create([
                         'name' => $participant['nombre'],
-                        'slug' => str($participant['nombre'])->slug()->toString(),
                         'birth_date' => $participant['nacimiento'],
+                        'gender' => 'PREFIERO_NO_DECIR',
                         'data_completed' => false,
                         'health' => [],
                         'emergency_contacts' => [],
@@ -68,34 +71,50 @@ class CompleteOnboarding
             }
 
             if ($validParticipants !== []) {
-                $total = (float) ($planData['precio'] ?? 0) * count($validParticipants);
+                if (! $plan) {
+                    throw ValidationException::withMessages([
+                        'cuenta.planId' => ['El plan seleccionado no es valido.'],
+                    ]);
+                }
+                $count = count($validParticipants);
+                $unitPrice = (float) $plan->price;
+                $quote = app(CalculateInscriptionTotal::class)->handle($count, $unitPrice, $plan);
                 $modality = $paymentData['modalidad'] ?? 'completo';
                 $reportedAmount = $modality === 'cuotas'
                     ? (float) ($paymentData['montoAbonar'] ?? 0)
-                    : $total;
-                $planName = $planData['nombre'] ?? 'Inscripción al plan';
-                $sessionName = trim(($planData['fechaInicio'] ?? '').' - '.($planData['fechaFin'] ?? ''));
+                    : $quote['total'];
+                $planName = $plan->name;
+                $sessionName = trim(($plan->starts_at?->format('Y-m-d') ?? '').' - '.($plan->ends_at?->format('Y-m-d') ?? ''));
                 $paymentMethod = $paymentData['metodo'] ?? 'Zelle';
                 $methodCode = match ($paymentMethod) {
                     'Efectivo' => 'met_efectivo',
                     'Transferencia', 'Bolívares' => 'met_transferencia_bs',
                     default => 'met_zelle',
                 };
+                $items = [[
+                    'nombre' => 'Inscripción · '.$planName,
+                    'variante' => $sessionName,
+                    'qty' => $count,
+                    'precio' => $unitPrice,
+                ]];
+                if ($quote['descuentoTotal'] > 0) {
+                    $items[] = [
+                        'nombre' => 'Descuento hermanos',
+                        'variante' => $sessionName ?: 'Sesión seleccionada',
+                        'qty' => 1,
+                        'precio' => -$quote['descuentoTotal'],
+                    ];
+                }
                 $registrationOrder = $draft->user->orders()
                     ->where('is_registration', true)
                     ->first();
 
                 if (! $registrationOrder) {
                     $registrationOrder = $draft->user->orders()->create([
-                        'order_code' => 'ord_insc_'.Str::lower(Str::random(12)),
+                        'user_uuid' => $draft->user_uuid,
                         'ordered_at' => now()->toDateString(),
-                        'items' => [[
-                            'nombre' => 'Inscripción · '.$planName,
-                            'variante' => $sessionName,
-                            'qty' => count($validParticipants),
-                            'precio' => (float) ($planData['precio'] ?? 0),
-                        ]],
-                        'total' => $total,
+                        'items' => $items,
+                        'total' => $quote['total'],
                         'paid' => 0,
                         'status' => 'PENDIENTE_PAGO',
                         'is_registration' => true,
@@ -104,14 +123,14 @@ class CompleteOnboarding
 
                 foreach ($validParticipants as $participant) {
                     $participant->enrollment()->updateOrCreate([], [
-                        'plan_id' => $plan?->id,
+                        'plan_uuid' => $plan?->uuid,
                         'plan_name' => $planName,
-                        'session_id' => 'sesion_001',
+                        'session_uuid' => (string) Str::uuid(),
                         'session_name' => $sessionName ?: 'Sesión seleccionada',
                         'status' => 'PENDIENTE_PAGO',
-                        'plan_type' => count($validParticipants) > 1 ? 'HERMANOS' : 'INDIVIDUAL',
-                        'total_amount' => (float) ($planData['precio'] ?? 0),
-                        'sibling_discount' => 0,
+                        'plan_type' => $quote['descuentoAplica'] ? 'HERMANOS' : 'INDIVIDUAL',
+                        'total_amount' => $unitPrice,
+                        'sibling_discount' => $quote['montoDescuentoPorParticipante'],
                         'payment_method' => [
                             'tipo' => strtoupper($modality),
                             'depositoInicial' => $reportedAmount,
@@ -125,9 +144,9 @@ class CompleteOnboarding
                     Payment::firstOrCreate(
                         ['idempotency_hash' => hash('sha256', 'onboarding|'.$draft->id)],
                         [
-                            'user_id' => $draft->user_id,
+                            'user_uuid' => $draft->user_uuid,
                             'paid_at' => now()->toDateString(),
-                            'amount' => min($reportedAmount, $total),
+                            'amount' => min($reportedAmount, $quote['total']),
                             'currency' => 'USD',
                             'method_code' => $methodCode,
                             'method_name' => $paymentMethod,
@@ -135,7 +154,7 @@ class CompleteOnboarding
                             'concept' => 'Inscripción - '.$planName,
                             'status' => 'PENDIENTE_VERIFICACION',
                             'receipt_name' => 'Referencia de onboarding',
-                            'order_id' => $registrationOrder->order_code,
+                            'order_uuid' => $registrationOrder->uuid,
                         ],
                     );
                 }

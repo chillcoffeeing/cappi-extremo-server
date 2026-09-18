@@ -13,7 +13,7 @@ class ParticipantWizardResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'participantId' => $this->id,
+            'participantId' => $this->uuid,
             'datosCompletos' => $this->data_completed,
             'completedSteps' => array_keys($this->wizard_steps ?? []),
             'data' => $this->wizard_steps ?? [],

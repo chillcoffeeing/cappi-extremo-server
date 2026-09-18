@@ -16,7 +16,7 @@ class SaveParticipantWizardStepRequest extends FormRequest
     {
         return [
             'stepId' => ['required', 'string', 'in:datos-basicos,salud,contactos-emergencia,encargado-retiro,seguro-medico,autorizaciones'],
-            'data' => ['required', 'array'],
+            'data' => ['present', 'array'],
         ];
     }
 }

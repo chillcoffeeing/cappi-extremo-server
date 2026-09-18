@@ -30,7 +30,6 @@ class AuthController extends Controller
             'identification' => $data['cedula'],
             'role' => 'USER',
             'onboarding_status' => 'INCOMPLETO',
-            'draft_id' => 'draft_'.str()->uuid(),
             'password' => $data['password'],
         ]);
 
@@ -48,6 +47,7 @@ class AuthController extends Controller
             return response()->json(['message' => 'Credenciales invalidas'], 422);
         }
 
+        $user->update(['last_login_at' => now()]);
         $tokens = $issueAuthTokens->handle($user, (bool) ($data['remember'] ?? false));
 
         return response()->json([
@@ -73,7 +73,7 @@ class AuthController extends Controller
     public function logout(): JsonResponse
     {
         request()->user()->tokens()->delete();
-        RefreshToken::where('user_id', request()->user()->id)
+        RefreshToken::where('user_uuid', request()->user()->uuid)
             ->whereNull('revoked_at')
             ->update(['revoked_at' => now()]);
 
@@ -86,7 +86,7 @@ class AuthController extends Controller
         $user = User::where('email', $email)->first();
         if ($user) {
             $token = Str::random(80);
-            PortalAuthToken::create(['user_id' => $user->id, 'email' => $email, 'type' => 'password', 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addHour()]);
+            PortalAuthToken::create(['user_uuid' => $user->uuid, 'email' => $email, 'type' => 'password', 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addHour()]);
             logger()->info('Portal password reset token generated', ['email' => $email, 'token' => $token]);
         }
 
@@ -100,7 +100,7 @@ class AuthController extends Controller
         if (! $authToken || $authToken->expires_at->isPast()) {
             return response()->json(['message' => 'El enlace de restablecimiento no es valido o expiro'], 422);
         }
-        User::where('id', $authToken->user_id)->update(['password' => $data['password']]);
+        User::where('uuid', $authToken->user_uuid)->update(['password' => $data['password']]);
         $authToken->update(['used_at' => now()]);
 
         return response()->json(null, 204);
@@ -113,7 +113,7 @@ class AuthController extends Controller
         if (! $authToken || $authToken->expires_at->isPast()) {
             return response()->json(['message' => 'El token de verificacion no es valido o expiro'], 422);
         }
-        User::where('id', $authToken->user_id)->update(['email_verified_at' => now()]);
+        User::where('uuid', $authToken->user_uuid)->update(['email_verified_at' => now()]);
         $authToken->update(['used_at' => now()]);
 
         return response()->json(null, 204);

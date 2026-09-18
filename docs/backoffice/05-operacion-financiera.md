@@ -25,6 +25,17 @@ La Action `ApprovePayment` debe ejecutarse dentro de una transacción:
 9. Registrar auditoría.
 10. Notificar al representante.
 
+**Estado (F-007):** implementados los pasos 1-6, 8 y 9 (auditoría vía `spatie/laravel-activitylog`
+en el modelo `Payment`). **No implementados:**
+- Paso 7 ("actualizar inscripción relacionada") — `enrollments` no tiene relación explícita con
+  `orders` (gap documentado desde antes de esta feature en `02-datos-y-migraciones.md`). Adivinar
+  qué inscripción corresponde por heurística (mismo usuario) podría marcar como pagada una
+  inscripción equivocada si el representante tiene más de una orden de inscripción — es peor que
+  no tocarla.
+- Paso 10 ("notificar al representante") — no existe ningún canal de notificaciones en la app
+  (sin tabla `notifications`, sin mailer transaccional configurado). Es un proyecto aparte, no un
+  detalle de `ApprovePayment`.
+
 ## Rechazar pago
 
 La Action `RejectPayment` debe:
@@ -36,6 +47,10 @@ La Action `RejectPayment` debe:
 - Registrar revisor y auditoría.
 - Permitir un nuevo reporte.
 
+**Estado (F-007):** implementado completo. No hay una Action separada de "solicitar corrección"
+para pagos — rechazar con motivo ya cumple esa función ("permitir un nuevo reporte" es
+exactamente lo que hace un rechazo).
+
 ## Órdenes
 
 Una orden de inscripción se crea al completar onboarding. Una orden de tienda se crea en checkout. Ambas usan el mismo flujo de pagos, pero se diferencian mediante `is_registration`.
@@ -44,6 +59,12 @@ Una orden de inscripción se crea al completar onboarding. Una orden de tienda s
 
 Filtros por fecha, plan, método, estado, representante y tipo de orden. Exportaciones deben respetar permisos y excluir comprobantes binarios salvo acción explícita.
 
+**Estado (F-007):** no implementado como reporte agregado. **Actualización F-013/F-014:**
+la acción "Exportar" por registro individual que tenía `OrderResource` se quitó (igual que
+todas las demás exportaciones del admin); no hay filtros combinados ni exportación masiva
+ni exportación por registro. Es trabajo de reporting aparte, a reintroducir solo cuando se
+pida una exportación específica nueva.
+
 ## Reglas
 
 - Los pagos pendientes no incrementan saldo abonado.
@@ -51,3 +72,15 @@ Filtros por fecha, plan, método, estado, representante y tipo de orden. Exporta
 - Una orden pagada no acepta abonos.
 - Reintentos deben ser idempotentes.
 - Las correcciones manuales de saldo requieren permiso financiero y motivo.
+
+## Descuento por hermanos (F-017)
+
+Configurable **por plan**, no como regla global: cada `Plan` tiene sus propias
+columnas `sibling_discount_enabled`/`sibling_discount_min_participants`/
+`sibling_discount_amount`, editables desde el tab "Precio y cupos" de
+`PlanResource`. El pricing de una inscripción (`CalculateInscriptionTotal`) y
+el recálculo retroactivo al crecer la familia (`RecalculateInscriptionOrders`)
+leen el descuento del plan operativo vigente
+(`Plan::operative()->latest('starts_at')->first()`), nunca de una fila global
+compartida. La antigua fila única `platform_settings` queda deprecada (ver
+`02-datos-y-migraciones.md`).

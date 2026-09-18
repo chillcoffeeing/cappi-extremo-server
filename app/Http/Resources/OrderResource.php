@@ -11,7 +11,7 @@ class OrderResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->order_code,
+            'id' => $this->uuid,
             'fecha' => $this->ordered_at?->format('Y-m-d'),
             'items' => $this->items ?? [],
             'total' => (float) $this->total,

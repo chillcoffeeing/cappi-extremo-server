@@ -14,11 +14,11 @@ class EnrollmentResource extends JsonResource
         $installment = max((float) $this->total_amount - (float) $this->sibling_discount, 0);
 
         return [
-            'id' => 'insc_'.$this->id,
-            'participanteId' => 'part_'.$this->participant_id,
-            'planId' => $this->plan_id ? 'plan_'.$this->plan_id : '',
+            'id' => $this->uuid,
+            'participanteId' => $this->participant?->uuid ?? '',
+            'planId' => $this->plan?->uuid ?? '',
             'planNombre' => $this->plan_name,
-            'sesionId' => $this->session_id,
+            'sesionId' => $this->session_uuid,
             'sesionNombre' => $this->session_name,
             'estado' => $this->status,
             'planTipo' => $this->plan_type,

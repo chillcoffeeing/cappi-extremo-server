@@ -14,7 +14,7 @@ class ParticipantResource extends JsonResource
         $enrollment = $this->enrollment;
 
         return [
-            'id' => $this->id,
+            'id' => $this->uuid,
             'datosCompletos' => $this->data_completed,
             'datosBasicos' => [
                 'nombre' => $this->name,
@@ -32,15 +32,25 @@ class ParticipantResource extends JsonResource
             'seguroMedico' => $this->medical_insurance ?? [],
             'autorizaciones' => $this->authorizations ?? [],
             'encargadoRetiro' => $this->pickup_contact,
+            'solicitudesCorreccion' => $this->whenLoaded('correctionRequests', fn () => $this->correctionRequests
+                ->map(fn ($request): array => [
+                    'id' => $request->uuid,
+                    'seccion' => $request->section,
+                    'mensaje' => $request->message,
+                    'estado' => $request->status,
+                    'resolucion' => $request->resolution,
+                    'fecha' => $request->created_at->format('Y-m-d'),
+                ])
+                ->values(), []),
             'inscripcionActiva' => $enrollment ? [
-                'planId' => $enrollment->plan_id ? 'plan_'.$enrollment->plan_id : '',
+                'planId' => $enrollment->plan?->uuid ?? '',
                 'planNombre' => $enrollment->plan_name,
                 'estado' => $enrollment->status,
             ] : null,
-                // El portal todavía normaliza esta sección aunque los documentos
-                // no formen parte del producto actual; devolver un arreglo evita
-                // que las fichas nuevas fallen al renderizarse.
-                'documentos' => [],
+            // El portal todavía normaliza esta sección aunque los documentos
+            // no formen parte del producto actual; devolver un arreglo evita
+            // que las fichas nuevas fallen al renderizarse.
+            'documentos' => [],
         ];
     }
 }

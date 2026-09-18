@@ -13,7 +13,7 @@ class OnboardingDraftResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'draftId' => $this->draft_id,
+            'draftId' => $this->uuid,
             'version' => $this->version,
             'completedSteps' => $this->completed_steps ?? [],
             'data' => $this->data ?? [],

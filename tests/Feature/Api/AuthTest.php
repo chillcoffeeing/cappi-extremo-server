@@ -34,7 +34,6 @@ class AuthTest extends TestCase
             'password' => 'password123',
             'phone' => '8095550101',
             'identification' => '001-0000001-1',
-            'draft_id' => 'draft_test',
         ]);
 
         $this->postJson('/api/auth/login', [

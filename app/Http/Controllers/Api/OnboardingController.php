@@ -46,15 +46,22 @@ class OnboardingController extends Controller
 
     private function draft(string $draftId): OnboardingDraft
     {
-        $existing = OnboardingDraft::where('draft_id', $draftId)->first();
-        abort_if($existing && $existing->user_id !== request()->user()->id, 404);
+        $existing = OnboardingDraft::where('uuid', $draftId)->first();
+        abort_if($existing && $existing->user_uuid !== request()->user()->uuid, 404);
 
-        return $existing ?? request()->user()->onboardingDrafts()->create([
-            'draft_id' => $draftId,
+        if ($existing) {
+            return $existing;
+        }
+
+        $draft = request()->user()->onboardingDrafts()->make([
             'version' => 0,
             'completed_steps' => [],
             'data' => [],
             'status' => 'INCOMPLETO',
         ]);
+        $draft->uuid = $draftId;
+        $draft->save();
+
+        return $draft;
     }
 }

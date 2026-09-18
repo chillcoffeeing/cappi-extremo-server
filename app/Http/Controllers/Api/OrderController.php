@@ -25,7 +25,7 @@ class OrderController extends Controller
         $items = $request->validated('items');
         $total = collect($items)->sum(fn (array $item): float => $item['qty'] * $item['precio']);
         $order = request()->user()->orders()->create([
-            'order_code' => 'ord_'.Str::lower(Str::random(12)),
+            'user_uuid' => request()->user()->uuid,
             'ordered_at' => now()->toDateString(),
             'items' => $items,
             'total' => $total,
@@ -39,7 +39,9 @@ class OrderController extends Controller
 
     public function linkPayment(LinkOrderPaymentRequest $request, string $order): JsonResponse
     {
-        $model = request()->user()->orders()->where('order_code', $order)->firstOrFail();
+        $model = request()->user()->orders()
+            ->where('uuid', $order)
+            ->firstOrFail();
         $data = $request->validated();
         $balance = (float) $model->total - (float) $model->paid;
         if ($balance <= 0) {
@@ -53,9 +55,9 @@ class OrderController extends Controller
         }
 
         $file = $request->file('comprobante');
-        $path = $file->store('comprobantes', 'public');
+        $path = $file->store('comprobantes', 'local');
         Payment::create([
-            'user_id' => request()->user()->id,
+            'user_uuid' => request()->user()->uuid,
             'paid_at' => now()->toDateString(),
             'amount' => $data['monto'],
             'currency' => 'USD',
@@ -66,8 +68,8 @@ class OrderController extends Controller
             'status' => 'PENDIENTE_VERIFICACION',
             'receipt_path' => $path,
             'receipt_name' => $file->getClientOriginalName(),
-            'order_id' => $model->order_code,
-            'idempotency_hash' => hash('sha256', $model->order_code.'|'.$data['referencia'].'|'.$data['monto']),
+            'order_uuid' => $model->uuid,
+            'idempotency_hash' => hash('sha256', $model->uuid.'|'.$data['referencia'].'|'.$data['monto']),
         ]);
 
         return response()->json(['data' => (new OrderResource($model->refresh()))->resolve($request)]);

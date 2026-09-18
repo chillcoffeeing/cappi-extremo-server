@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Inscriptions\RegisterParticipantInscription;
 use App\Actions\Participants\CompleteParticipantWizard;
 use App\Actions\Participants\SaveParticipantWizardStep;
 use App\Actions\Participants\UpdateParticipant;
@@ -13,6 +14,7 @@ use App\Http\Requests\UploadPhotoRequest;
 use App\Http\Resources\ParticipantResource;
 use App\Http\Resources\ParticipantWizardResource;
 use App\Models\Participant;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
 
@@ -21,16 +23,18 @@ class ParticipantController extends Controller
     public function index(): AnonymousResourceCollection
     {
         return ParticipantResource::collection(
-            request()->user()->participants()->latest('id')->get(),
+            request()->user()->participants()->with('correctionRequests')->latest('id')->get(),
         );
     }
 
-    public function store(StoreParticipantRequest $request): ParticipantResource
-    {
+    public function store(
+        StoreParticipantRequest $request,
+        RegisterParticipantInscription $register,
+    ): JsonResponse {
         $data = $request->validated();
-        $participant = request()->user()->participants()->create([
+        $user = $request->user()->fresh();
+        $participant = $user->participants()->create([
             'name' => $data['name'],
-            'slug' => str($data['name'])->slug()->toString(),
             'birth_date' => $data['birthDate'],
             'gender' => $data['gender'],
             'data_completed' => false,
@@ -42,15 +46,19 @@ class ParticipantController extends Controller
             'wizard_steps' => [],
         ]);
 
-        return new ParticipantResource($participant);
+        if ($user->onboarding_status === 'COMPLETADO') {
+            $register->handle($participant);
+        }
+
+        return (new ParticipantResource($participant))->response()->setStatusCode(200);
     }
 
-    public function show(int $participant): ParticipantResource
+    public function show(string $participant): ParticipantResource
     {
         return new ParticipantResource($this->ownedParticipant($participant));
     }
 
-    public function update(UpdateParticipantRequest $request, int $participant, UpdateParticipant $action): ParticipantResource
+    public function update(UpdateParticipantRequest $request, string $participant, UpdateParticipant $action): ParticipantResource
     {
         $data = $request->validated();
         $mapped = [];
@@ -72,12 +80,12 @@ class ParticipantController extends Controller
         return new ParticipantResource($action->handle($this->ownedParticipant($participant), $mapped));
     }
 
-    public function wizard(int $participant): ParticipantWizardResource
+    public function wizard(string $participant): ParticipantWizardResource
     {
         return new ParticipantWizardResource($this->ownedParticipant($participant));
     }
 
-    public function saveWizardStep(SaveParticipantWizardStepRequest $request, int $participant, SaveParticipantWizardStep $action): ParticipantWizardResource
+    public function saveWizardStep(SaveParticipantWizardStepRequest $request, string $participant, SaveParticipantWizardStep $action): ParticipantWizardResource
     {
         $model = $action->handle(
             $this->ownedParticipant($participant),
@@ -88,12 +96,12 @@ class ParticipantController extends Controller
         return new ParticipantWizardResource($model);
     }
 
-    public function completeWizard(int $participant, CompleteParticipantWizard $action): ParticipantResource
+    public function completeWizard(string $participant, CompleteParticipantWizard $action): ParticipantResource
     {
         return new ParticipantResource($action->handle($this->ownedParticipant($participant)));
     }
 
-    public function updatePhoto(UploadPhotoRequest $request, int $participant): ParticipantResource
+    public function updatePhoto(UploadPhotoRequest $request, string $participant): ParticipantResource
     {
         $model = $this->ownedParticipant($participant);
         if ($model->photo_url) {
@@ -105,8 +113,11 @@ class ParticipantController extends Controller
         return new ParticipantResource($model->refresh());
     }
 
-    private function ownedParticipant(int $participant): Participant
+    private function ownedParticipant(string $participant): Participant
     {
-        return request()->user()->participants()->findOrFail($participant);
+        return request()->user()->participants()
+            ->with('correctionRequests')
+            ->where('uuid', $participant)
+            ->firstOrFail();
     }
 }

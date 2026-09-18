@@ -11,7 +11,7 @@ class AuthUserResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => 'fam_'.$this->id,
+            'id' => $this->uuid,
             'nombre' => $this->name,
             'email' => $this->email,
             'telefono' => $this->phone ?? '',
@@ -19,7 +19,7 @@ class AuthUserResource extends JsonResource
             'rol' => $this->role,
             'emailVerified' => $this->email_verified_at !== null,
             'onboardingStatus' => $this->onboarding_status,
-            'draftId' => $this->draft_id,
+            'draftId' => $this->uuid,
         ];
     }
 }

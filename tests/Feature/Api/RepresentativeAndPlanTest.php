@@ -55,12 +55,10 @@ class RepresentativeAndPlanTest extends TestCase
             'staff' => [],
             'mini_market' => [],
         ]);
-        Sanctum::actingAs($user);
-
         $this->getJson('/api/planes/activo')
             ->assertOk()
             ->assertJsonPath('data.nombre', 'Plan Vacacional')
-            ->assertJsonPath('data.precio', 150);
+            ->assertJsonMissingPath('data.precio');
     }
 
     public function test_representative_photo_is_stored_as_multipart_file(): void

@@ -19,7 +19,11 @@ En producción se recomienda `admin.cappixtremo.com`. El API continuará usando 
 - Revocación de sesiones al desactivar un admin.
 - Rate limiting para login.
 - MFA como mejora prioritaria para `SUPER_ADMIN` y `FINANZAS`.
-- No exponer comprobantes mediante URLs públicas permanentes.
+- No exponer comprobantes mediante URLs públicas permanentes. **Hecho (F-004)** en
+  el lado API/portal: `comprobantes` ahora vive en disco `local` (privado) y se
+  sirve solo al representante dueño vía `GET /api/pagos/{payment}/comprobante`
+  (Sanctum). El acceso administrativo con permiso financiero se resuelve en
+  Fase 4, cuando exista `PaymentResource`.
 
 ## Autorización
 
@@ -46,6 +50,7 @@ payments.view
 payments.approve
 payments.reject
 payment_methods.manage
+products.manage
 reports.export
 audit.view
 admin_users.manage

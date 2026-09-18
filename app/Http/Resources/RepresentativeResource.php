@@ -13,7 +13,7 @@ class RepresentativeResource extends JsonResource
     {
         return [
             'perfil' => [
-                'id' => 'fam_'.$this->id,
+                'id' => $this->uuid,
                 'nombre' => $this->name,
                 'apellido' => $this->last_name ?? '',
                 'email' => $this->email,

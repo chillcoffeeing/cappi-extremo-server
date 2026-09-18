@@ -11,7 +11,8 @@ class PlanController extends Controller
 {
     public function active(): PlanResource|Response
     {
-        $plan = Plan::whereIn('status', ['PUBLICADO', 'EN_CURSO'])
+        $plan = Plan::operative()
+            ->with(['planDays.activities', 'announcements', 'currentDay'])
             ->latest('starts_at')
             ->first();
 

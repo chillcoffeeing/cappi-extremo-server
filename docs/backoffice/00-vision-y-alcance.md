@@ -21,10 +21,10 @@ El admin debe controlar tanto los datos que llegan desde el portal como el conte
 - Plan único activo.
 - Días, actividades y avance del plan.
 - Órdenes de inscripción y tienda.
+- Catálogo de productos de tienda.
 - Revisión y aprobación de pagos.
 - Métodos de pago.
 - Auditoría de acciones sensibles.
-- Exportaciones operativas.
 
 ## Fuera de alcance inicial
 
@@ -34,6 +34,9 @@ El admin debe controlar tanto los datos que llegan desde el portal como el conte
 - Facturación fiscal.
 - Nómina del staff.
 - Automatización avanzada de WhatsApp.
+- **Exportaciones operativas** — estaban en el MVP original, pero el usuario pidió quitar
+  TODAS las exportaciones que existían tras probar el panel (F-014): no hay ninguna
+  disponible hasta que se pida una específica nueva (ver `03-panel-y-recursos.md`).
 
 ## Usuarios administrativos
 
@@ -50,6 +53,10 @@ El admin debe controlar tanto los datos que llegan desde el portal como el conte
 - Filament presenta y orquesta; las reglas viven en Actions.
 - Ninguna aprobación financiera se resuelve solo en la UI.
 - Los estados deben ser explícitos y auditables.
-- El contenido publicado debe tener vista previa antes de afectar el portal.
 - El dinero aprobado es la única fuente para actualizar saldos.
 - El plan activo es único y su publicación debe ser transaccional.
+
+Principio original descartado: "el contenido publicado debe tener vista previa antes de afectar
+el portal" — se decidió explícitamente no construir una vista previa visual del plan (F-005, bajo
+valor en una consola admin); publicar sigue siendo transaccional y reversible por Actions, pero
+sin previsualización visual antes de publicar.

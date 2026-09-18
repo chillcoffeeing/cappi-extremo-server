@@ -20,8 +20,7 @@ class IssueAuthTokens
             );
             $refreshToken = Str::random(80);
             $refresh = RefreshToken::create([
-                'user_id' => $user->id,
-                'access_token_id' => $accessToken->accessToken->id,
+                'user_uuid' => $user->uuid,
                 'token_hash' => hash('sha256', $refreshToken),
                 'remember' => $remember,
                 'expires_at' => now()->addDays($remember ? 30 : 1),

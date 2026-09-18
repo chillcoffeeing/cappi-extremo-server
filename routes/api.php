@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\ConfigController;
 use App\Http\Controllers\Api\EnrollmentController;
 use App\Http\Controllers\Api\OnboardingController;
 use App\Http\Controllers\Api\OrderController;
@@ -27,6 +28,11 @@ Route::prefix('auth')->group(function (): void {
         ->middleware('auth:sanctum')
         ->name('auth.logout');
 });
+
+Route::get('/planes/activo', [PlanController::class, 'active'])
+    ->name('plans.active');
+Route::get('/config/plan-price', [ConfigController::class, 'planPrice'])
+    ->name('config.plan-price');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/participantes', [ParticipantController::class, 'index'])
@@ -61,12 +67,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
         ->name('representative.pickup');
     Route::put('/representante/foto', [RepresentativeController::class, 'updatePhoto'])
         ->name('representative.photo');
-    Route::get('/planes/activo', [PlanController::class, 'active'])
-        ->name('plans.active');
     Route::get('/pagos', [PaymentController::class, 'index'])->name('payments.index');
     Route::get('/pagos/balance', [PaymentController::class, 'balance'])->name('payments.balance');
     Route::get('/config/metodos-pago', [PaymentController::class, 'methods'])->name('payment-methods.index');
     Route::post('/pagos', [PaymentController::class, 'store'])->name('payments.store');
+    Route::get('/pagos/{payment}/comprobante', [PaymentController::class, 'receipt'])->name('payments.receipt');
     Route::get('/ordenes', [OrderController::class, 'index'])->name('orders.index');
     Route::post('/ordenes', [OrderController::class, 'store'])->name('orders.store');
     Route::post('/ordenes/{order}/enlazar-pago', [OrderController::class, 'linkPayment'])->name('orders.link-payment');

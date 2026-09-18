@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Participant;
+use App\Models\ParticipantCorrectionRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -27,16 +28,14 @@ class ParticipantsIndexTest extends TestCase
         $otherUser = User::factory()->create();
 
         Participant::factory()->create([
-            'user_id' => $user->id,
+            'user_uuid' => $user->uuid,
             'name' => 'Juan Perez',
-            'slug' => 'juan-perez',
             'birth_date' => '2018-03-12',
             'data_completed' => false,
         ]);
         Participant::factory()->create([
-            'user_id' => $otherUser->id,
+            'user_uuid' => $otherUser->uuid,
             'name' => 'Otro Participante',
-            'slug' => 'otro-participante',
             'birth_date' => '2017-01-01',
         ]);
 
@@ -52,15 +51,15 @@ class ParticipantsIndexTest extends TestCase
     public function test_participant_detail_patch_and_wizard_completion_are_persisted(): void
     {
         $user = User::factory()->create();
-        $participant = Participant::factory()->create(['user_id' => $user->id]);
+        $participant = Participant::factory()->create(['user_uuid' => $user->uuid]);
         Sanctum::actingAs($user);
 
-        $this->getJson("/api/participantes/{$participant->id}")
+        $this->getJson("/api/participantes/{$participant->uuid}")
             ->assertOk()
-            ->assertJsonPath('data.id', $participant->id)
+            ->assertJsonPath('data.id', $participant->uuid)
             ->assertJsonPath('data.documentos', []);
 
-        $this->patchJson("/api/participantes/{$participant->id}", [
+        $this->patchJson("/api/participantes/{$participant->uuid}", [
             'health' => ['tipoSangre' => 'O+'],
             'shirtSize' => 'M',
             'weightKg' => 34.5,
@@ -120,13 +119,13 @@ class ParticipantsIndexTest extends TestCase
         ];
 
         foreach ($steps as $step => $data) {
-            $this->postJson("/api/participantes/{$participant->id}/wizard/step", [
+            $this->postJson("/api/participantes/{$participant->uuid}/wizard/step", [
                 'stepId' => $step,
                 'data' => $data,
             ])->assertOk();
         }
 
-        $this->postJson("/api/participantes/{$participant->id}/wizard/complete")
+        $this->postJson("/api/participantes/{$participant->uuid}/wizard/complete")
             ->assertOk()
             ->assertJsonPath('data.datosCompletos', true)
             ->assertJsonPath('data.datosBasicos.tallaCamisa', 'M')
@@ -141,10 +140,10 @@ class ParticipantsIndexTest extends TestCase
     public function test_participant_resource_includes_active_enrollment_summary(): void
     {
         $user = User::factory()->create();
-        $participant = Participant::factory()->create(['user_id' => $user->id]);
+        $participant = Participant::factory()->create(['user_uuid' => $user->uuid]);
         $participant->enrollment()->create([
             'plan_name' => 'Plan Vacacional Decembrino',
-            'session_id' => 'sesion_001',
+            'session_uuid' => (string) str()->uuid(),
             'session_name' => 'Semana 1',
             'status' => 'PENDIENTE_PAGO',
             'plan_type' => 'INDIVIDUAL',
@@ -156,10 +155,29 @@ class ParticipantsIndexTest extends TestCase
         ]);
         Sanctum::actingAs($user);
 
-        $this->getJson("/api/participantes/{$participant->id}")
+        $this->getJson("/api/participantes/{$participant->uuid}")
             ->assertOk()
             ->assertJsonPath('data.inscripcionActiva.planNombre', 'Plan Vacacional Decembrino')
             ->assertJsonPath('data.inscripcionActiva.estado', 'PENDIENTE_PAGO');
+    }
+
+    public function test_participant_resource_exposes_correction_requests(): void
+    {
+        $user = User::factory()->create();
+        $participant = Participant::factory()->create(['user_uuid' => $user->uuid]);
+        ParticipantCorrectionRequest::create([
+            'participant_uuid' => $participant->uuid,
+            'section' => 'salud',
+            'message' => 'Falta el tipo de sangre.',
+            'status' => 'PENDIENTE',
+        ]);
+        Sanctum::actingAs($user);
+
+        $this->getJson("/api/participantes/{$participant->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.solicitudesCorreccion.0.seccion', 'salud')
+            ->assertJsonPath('data.solicitudesCorreccion.0.mensaje', 'Falta el tipo de sangre.')
+            ->assertJsonPath('data.solicitudesCorreccion.0.estado', 'PENDIENTE');
     }
 
     public function test_participant_routes_do_not_expose_another_users_participant(): void
@@ -168,7 +186,7 @@ class ParticipantsIndexTest extends TestCase
         $otherParticipant = Participant::factory()->create();
         Sanctum::actingAs($user);
 
-        $this->getJson("/api/participantes/{$otherParticipant->id}")
+        $this->getJson("/api/participantes/{$otherParticipant->uuid}")
             ->assertNotFound();
     }
 
@@ -176,10 +194,10 @@ class ParticipantsIndexTest extends TestCase
     {
         Storage::fake('public');
         $user = User::factory()->create();
-        $participant = Participant::factory()->create(['user_id' => $user->id]);
+        $participant = Participant::factory()->create(['user_uuid' => $user->uuid]);
         Sanctum::actingAs($user);
 
-        $response = $this->put("/api/participantes/{$participant->id}/foto", [
+        $response = $this->put("/api/participantes/{$participant->uuid}/foto", [
             'foto' => UploadedFile::fake()->image('carnet.jpg'),
         ]);
 

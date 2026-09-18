@@ -13,14 +13,11 @@ class ParticipantFactory extends Factory
 
     public function definition(): array
     {
-        $name = fake()->name();
-
         return [
-            'user_id' => User::factory(),
-            'name' => $name,
-            'slug' => str($name)->slug()->toString(),
+            'user_uuid' => User::factory()->create()->uuid,
+            'name' => fake()->name(),
             'birth_date' => fake()->date(),
-            'gender' => fake()->randomElement(['MASCULINO', 'FEMENINO', 'OTRO']),
+            'gender' => fake()->randomElement(['MASCULINO', 'FEMENINO', 'OTRO', 'PREFIERO_NO_DECIR']),
             'identification' => null,
             'photo_url' => null,
             'data_completed' => false,

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Plan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class OnboardingTest extends TestCase
@@ -14,22 +15,23 @@ class OnboardingTest extends TestCase
 
     public function test_onboarding_draft_is_created_and_completed(): void
     {
-        $user = User::factory()->create(['draft_id' => 'draft_test']);
+        $user = User::factory()->create();
+        $draftId = (string) Str::uuid();
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/onboarding/draft_test')
+        $this->getJson("/api/onboarding/{$draftId}")
             ->assertOk()
-            ->assertJsonPath('data.draftId', 'draft_test')
+            ->assertJsonStructure(['data' => ['draftId', 'version']])
             ->assertJsonPath('data.version', 0);
 
         foreach (['cuenta', 'participantes', 'pago', 'adicionales', 'confirmacion'] as $step) {
-            $this->postJson('/api/onboarding/draft_test/step', [
+            $this->postJson("/api/onboarding/{$draftId}/step", [
                 'stepId' => $step,
                 'data' => ['saved' => true],
             ])->assertOk();
         }
 
-        $this->postJson('/api/onboarding/draft_test/complete')
+        $this->postJson("/api/onboarding/{$draftId}/complete")
             ->assertOk()
             ->assertJsonPath('status', 'COMPLETADO');
 
@@ -41,8 +43,9 @@ class OnboardingTest extends TestCase
 
     public function test_onboarding_participants_are_created_when_completed(): void
     {
-        $user = User::factory()->create(['draft_id' => 'draft_participant_test']);
-        Plan::create([
+        $user = User::factory()->create();
+        $draftId = (string) Str::uuid();
+        $plan = Plan::create([
             'name' => 'Plan de prueba',
             'venue' => 'Sede de prueba',
             'season' => 'Temporada de prueba',
@@ -56,20 +59,15 @@ class OnboardingTest extends TestCase
         ]);
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/onboarding/draft_participant_test/step', [
+        $this->postJson("/api/onboarding/{$draftId}/step", [
             'stepId' => 'cuenta',
             'data' => [
-                'plan' => [
-                    'nombre' => 'Plan de prueba',
-                    'precio' => 150,
-                    'fechaInicio' => '2026-12-07',
-                    'fechaFin' => '2026-12-11',
-                ],
+                'planId' => $plan->uuid,
             ],
         ])->assertOk();
 
         foreach (['pago', 'adicionales', 'confirmacion'] as $step) {
-            $this->postJson('/api/onboarding/draft_participant_test/step', [
+            $this->postJson("/api/onboarding/{$draftId}/step", [
                 'stepId' => $step,
                 'data' => $step === 'pago'
                     ? ['pago' => ['modalidad' => 'completo', 'metodo' => 'Zelle', 'referencia' => 'REF-001']]
@@ -77,7 +75,7 @@ class OnboardingTest extends TestCase
             ])->assertOk();
         }
 
-        $this->postJson('/api/onboarding/draft_participant_test/step', [
+        $this->postJson("/api/onboarding/{$draftId}/step", [
             'stepId' => 'participantes',
             'data' => [
                 'participantes' => [
@@ -86,17 +84,17 @@ class OnboardingTest extends TestCase
             ],
         ])->assertOk();
 
-        $this->postJson('/api/onboarding/draft_participant_test/complete')
+        $this->postJson("/api/onboarding/{$draftId}/complete")
             ->assertOk()
             ->assertJsonPath('status', 'COMPLETADO');
 
         $this->assertDatabaseHas('participants', [
-            'user_id' => $user->id,
+            'user_uuid' => $user->uuid,
             'name' => 'Yessi',
             'birth_date' => '2018-09-10',
         ]);
         $this->assertDatabaseHas('orders', [
-            'user_id' => $user->id,
+            'user_uuid' => $user->uuid,
             'is_registration' => true,
             'total' => 150,
             'paid' => 0,
@@ -107,7 +105,7 @@ class OnboardingTest extends TestCase
             'status' => 'PENDIENTE_PAGO',
         ]);
         $this->assertDatabaseHas('payments', [
-            'user_id' => $user->id,
+            'user_uuid' => $user->uuid,
             'reference' => 'REF-001',
             'status' => 'PENDIENTE_VERIFICACION',
         ]);
