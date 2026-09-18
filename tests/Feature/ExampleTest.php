@@ -14,6 +14,8 @@ class ExampleTest extends TestCase
     {
         $response = $this->get('/');
 
-        $response->assertStatus(200);
+        // 204, no la vista "welcome" por defecto: api.cappixtremo.com no es
+        // navegable, la raiz no debe delatar el framework (ver routes/web.php).
+        $response->assertStatus(204);
     }
 }
