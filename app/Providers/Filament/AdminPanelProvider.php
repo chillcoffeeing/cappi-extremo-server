@@ -22,10 +22,15 @@ class AdminPanelProvider extends PanelProvider
 {
     public function panel(Panel $panel): Panel
     {
-        return $panel
+        // Con ADMIN_PANEL_DOMAIN definido (produccion): el panel vive en la
+        // raiz de ese dominio y deja de responder en cualquier otro host.
+        // Sin definir (dev local): sigue en /admin sobre cualquier host,
+        // igual que antes -- no rompe `localhost:8000/admin`.
+        $adminDomain = config('app.admin_panel_domain');
+
+        $panel = $panel
             ->default()
             ->id('admin')
-            ->path('admin')
             ->authGuard('admin')
             ->login()
             ->colors([
@@ -52,5 +57,9 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
                 EnsureAdminIsActive::class,
             ]);
+
+        return filled($adminDomain)
+            ? $panel->domain($adminDomain)->path('')
+            : $panel->path('admin');
     }
 }

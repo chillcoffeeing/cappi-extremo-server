@@ -123,4 +123,19 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Admin panel domain
+    |--------------------------------------------------------------------------
+    |
+    | Dominio dedicado del panel Filament (ej. admin.cappixtremo.com). Si se
+    | define, el panel sirve en la raiz de ESE dominio (sin el prefijo
+    | "/admin") y deja de responder en cualquier otro host, incluido
+    | api.cappixtremo.com. Sin definir (dev local), el panel sigue viviendo
+    | en /admin sobre cualquier host, como antes.
+    |
+    */
+
+    'admin_panel_domain' => env('ADMIN_PANEL_DOMAIN'),
+
 ];
