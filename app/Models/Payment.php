@@ -6,8 +6,8 @@ use App\Models\Concerns\HasPublicUuid;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Spatie\Activitylog\Models\Concerns\LogsActivity;
-use Spatie\Activitylog\Support\LogOptions;
+use Spatie\Activitylog\LogOptions;
+use Spatie\Activitylog\Traits\LogsActivity;
 
 #[Fillable(['user_uuid', 'order_uuid', 'paid_at', 'amount', 'currency', 'method_code', 'method_name', 'reference', 'concept', 'status', 'rejection_reason', 'receipt_path', 'receipt_name', 'idempotency_hash', 'reviewed_by', 'reviewed_at'])]
 class Payment extends Model
