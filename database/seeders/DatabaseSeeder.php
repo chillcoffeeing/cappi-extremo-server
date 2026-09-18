@@ -2,16 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\Enrollment;
-use App\Models\Order;
-use App\Models\Participant;
-use App\Models\Payment;
 use App\Models\Plan;
-use App\Models\PlatformSetting;
-use App\Models\Product;
-use App\Models\User;
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Str;
 
 class DatabaseSeeder extends Seeder
 {
@@ -20,7 +12,10 @@ class DatabaseSeeder extends Seeder
     // eventos deja `uuid` en NULL para todo lo que crea este seeder.
 
     /**
-     * Seed the application's database.
+     * Seed de producción (F-020): solo infraestructura administrativa +
+     * un plan real de ejemplo. Sin usuario/participantes/órdenes/pagos/
+     * productos demo -- esos existían para desarrollo local, no deben
+     * llegar a una base de datos en vivo.
      */
     public function run(): void
     {
@@ -28,21 +23,7 @@ class DatabaseSeeder extends Seeder
         $this->call(PermissionSeeder::class);
         $this->call(PaymentMethodSeeder::class);
 
-        PlatformSetting::singleton();
-        $user = User::updateOrCreate(
-            ['email' => 'maria@example.com'],
-            [
-                'name' => 'Maria',
-                'last_name' => 'Perez',
-                'phone' => '8095550101',
-                'identification' => '001-0000001-1',
-                'role' => 'USER',
-                'onboarding_status' => 'COMPLETADO',
-                'password' => 'password123',
-            ],
-        );
-
-        $plan = Plan::updateOrCreate(
+        Plan::updateOrCreate(
             ['name' => 'PLAN VACACIONAL - EDICIÓN NAVIDAD'],
             [
                 'venue' => 'Finca la Esperanza - Guanare', 'season' => 'Edición Navidad',
@@ -116,148 +97,10 @@ class DatabaseSeeder extends Seeder
                 'description' => 'Cinco días de plan vacacional decembrino.', 'activities' => ['Piscina', 'Paseos a caballo'],
                 'staff' => [['id' => 'st_001', 'nombre' => 'Equipo Cappi Xtremo', 'rol' => 'Facilitadores']],
                 'mini_market' => [], 'whatsapp' => '584121234567',
+                'sibling_discount_enabled' => true,
+                'sibling_discount_min_participants' => 2,
+                'sibling_discount_amount' => 20,
             ],
         );
-        $sessionId = (string) Str::uuid();
-
-        $wizardSteps = [
-            'datos-basicos' => [
-                'nombre' => 'Juan Perez', 'fechaNacimiento' => '2018-03-12', 'genero' => 'MASCULINO',
-                'cedula' => '001-1234567-1', 'tallaCamisa' => 'CH', 'pesoKg' => 28,
-            ],
-            'salud' => [
-                'tipoSangre' => 'O+', 'alergias' => 'Polen', 'condicionesMedicas' => '',
-                'medicamentos' => '', 'discapacidades' => '', 'requiereAcompanante' => false, 'infoAdicional' => '',
-            ],
-            'contactos-emergencia' => [
-                'contactosEmergencia' => [
-                    ['id' => 'c_001', 'nombre' => 'Maria Perez', 'telefono' => '8095550101', 'parentesco' => 'Madre'],
-                    ['id' => 'c_002', 'nombre' => 'Carlos Perez', 'telefono' => '8095550102', 'parentesco' => 'Tío'],
-                ],
-            ],
-            'encargado-retiro' => [
-                'encargadoRetiro' => [
-                    'id' => 'er_001', 'nombre' => 'Jose Perez', 'documento' => '001-7654321-8',
-                    'telefono' => '8095550103', 'relacion' => 'Padrino', 'esContactoEmergencia' => false,
-                ],
-            ],
-            'seguro-medico' => [
-                'aseguradora' => 'Seguros Universal', 'poliza' => 'POL-8899',
-                'telefonoEmergencias' => '8095550199', 'noTiene' => false,
-            ],
-            'autorizaciones' => [
-                'autorizaFotos' => true, 'autorizaVideo' => true, 'autorizaActividadesAcuaticas' => false,
-                'autorizaTraslados' => true, 'autorizaAtencionMedicaUrgencia' => true,
-            ],
-        ];
-
-        $participant = Participant::updateOrCreate(
-            ['user_uuid' => $user->uuid, 'name' => 'Juan Perez'],
-            [
-                'name' => 'Juan Perez', 'birth_date' => '2018-03-12', 'gender' => 'MASCULINO',
-                'data_completed' => true,
-                'health' => $wizardSteps['salud'],
-                'emergency_contacts' => $wizardSteps['contactos-emergencia']['contactosEmergencia'],
-                'pickup_contact' => $wizardSteps['encargado-retiro']['encargadoRetiro'],
-                'medical_insurance' => $wizardSteps['seguro-medico'],
-                'authorizations' => $wizardSteps['autorizaciones'],
-                'wizard_steps' => $wizardSteps,
-            ],
-        );
-
-        Participant::updateOrCreate(
-            ['user_uuid' => $user->uuid, 'name' => 'Valentina Perez'],
-            [
-                'name' => 'Valentina Perez', 'birth_date' => '2015-07-22', 'gender' => 'FEMENINO',
-                'data_completed' => false, 'health' => [], 'emergency_contacts' => [],
-                'pickup_contact' => null, 'medical_insurance' => [], 'authorizations' => [],
-                'wizard_steps' => [],
-            ],
-        );
-
-        Enrollment::updateOrCreate(
-            ['participant_uuid' => $participant->uuid],
-            [
-                'plan_uuid' => $plan->uuid, 'plan_name' => $plan->name, 'session_uuid' => $sessionId,
-                'session_name' => 'Semana 1 - 07/12/2026', 'status' => 'PENDIENTE_PAGO',
-                'plan_type' => 'HERMANOS', 'total_amount' => 300, 'sibling_discount' => 20,
-                'payment_method' => ['tipo' => 'CUOTAS', 'depositoInicial' => 0],
-                'starts_at' => '2026-12-07', 'ends_at' => '2026-12-11',
-            ],
-        );
-
-        $valentina = Participant::where('user_uuid', $user->uuid)->where('name', 'Valentina Perez')->first();
-        if ($valentina) {
-            Enrollment::updateOrCreate(
-                ['participant_uuid' => $valentina->uuid],
-                [
-                    'plan_uuid' => $plan->uuid, 'plan_name' => $plan->name, 'session_uuid' => $sessionId,
-                    'session_name' => 'Semana 1 - 07/12/2026', 'status' => 'PENDIENTE_PAGO',
-                    'plan_type' => 'HERMANOS', 'total_amount' => 300, 'sibling_discount' => 20,
-                    'payment_method' => ['tipo' => 'CUOTAS', 'depositoInicial' => 0],
-                    'starts_at' => '2026-12-07', 'ends_at' => '2026-12-11',
-                ],
-            );
-        }
-
-        $registrationOrder = Order::firstOrNew([
-            'user_uuid' => $user->uuid,
-            'is_registration' => true,
-        ]);
-        $registrationOrder->fill([
-                'user_uuid' => $user->uuid,
-                'ordered_at' => '2026-09-16',
-                'items' => [
-                    ['nombre' => 'Inscripción · '.$plan->name, 'variante' => 'Semana 1 - 07/12/2026', 'qty' => 2, 'precio' => 300],
-                    ['nombre' => 'Descuento hermanos', 'variante' => 'Semana 1 - 07/12/2026', 'qty' => 1, 'precio' => -40],
-                ],
-                'total' => 560,
-                'paid' => 0,
-                'status' => 'PENDIENTE_PAGO',
-                'is_registration' => true,
-            ]);
-        $registrationOrder->save();
-
-        foreach ([
-            ['name' => 'Gorra Xtremo', 'category' => 'Ropa', 'price' => 15, 'previous_price' => 22, 'variants' => ['Talla única'], 'images' => ['https://picsum.photos/seed/tienda1a/400/400'], 'description' => 'Gorra de perfil con el logo bordado.'],
-            ['name' => 'Botella deportiva', 'category' => 'Accesorios', 'price' => 12, 'previous_price' => null, 'variants' => ['Talla única'], 'images' => ['https://picsum.photos/seed/tienda5a/400/400'], 'description' => 'Botella resistente para hidratarse.'],
-        ] as $product) {
-            Product::updateOrCreate(['name' => $product['name']], [...$product, 'in_stock' => true]);
-        }
-
-        $order = Order::firstOrNew([
-            'user_uuid' => $user->uuid,
-            'is_registration' => false,
-        ]);
-        $order->fill([
-                'user_uuid' => $user->uuid,
-                'ordered_at' => '2026-09-16',
-                'items' => [['nombre' => 'Gorra Xtremo', 'variante' => 'Talla única', 'qty' => 1, 'precio' => 15]],
-                'total' => 15,
-                'paid' => 15,
-                'status' => 'PAGADA',
-                'is_registration' => false,
-            ]);
-        $order->save();
-
-        $payment = Payment::firstOrNew([
-            'user_uuid' => $user->uuid,
-            'concept' => 'Pedido tienda - Gorra Xtremo',
-        ]);
-        $payment->fill([
-                'user_uuid' => $user->uuid,
-                'paid_at' => '2026-09-16',
-                'amount' => 15,
-                'currency' => 'USD',
-                'method_code' => 'met_zelle',
-                'method_name' => 'Zelle',
-                'reference' => 'DEMO-001',
-                'concept' => 'Pedido tienda - Gorra Xtremo',
-                'status' => 'APROBADO',
-                'receipt_name' => 'demo-receipt.jpg',
-                'order_uuid' => $order->uuid,
-                'idempotency_hash' => $payment->idempotency_hash ?? hash('sha256', (string) Str::uuid()),
-            ]);
-        $payment->save();
     }
 }
