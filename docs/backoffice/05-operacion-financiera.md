@@ -73,6 +73,30 @@ pida una exportación específica nueva.
 - Reintentos deben ser idempotentes.
 - Las correcciones manuales de saldo requieren permiso financiero y motivo.
 
+## Coordinación del primer pago por WhatsApp (F-023)
+
+Un `PaymentMethod` puede ser `DIRECTO` (se reporta en la app, comportamiento por defecto) o
+`COORDINADO_REMOTO` (el primer pago de la inscripción se coordina fuera de la app, ej. WhatsApp,
+en vez de reportarse con referencia y comprobante). `type` describe ese comportamiento, no el
+proveedor: Zelle, Binance, Efectivo o cualquier método nuevo que el admin cree pueden ser
+cualquiera de los dos, editable en cualquier momento desde `/admin/payment-methods` sin tocar
+código.
+
+- Al completar el onboarding con un método `COORDINADO_REMOTO`, `CompleteOnboarding` igual crea el
+  `Payment` de la orden de inscripción — `PENDIENTE_VERIFICACION`, sin `reference` ni comprobante.
+  Es la fila que registra que el primer pago quedó pendiente de coordinar; no hay datos de
+  transacción reales en ningún lado (admin/API/portal) hasta que soporte lo gestione y un admin lo
+  apruebe/rechace por los canales normales de `ApprovePayment`/`RejectPayment`.
+- El método `COORDINADO_REMOTO` configura 4 textos (`data.whatsapp.mensajeOnboarding`,
+  `mensajeDashboard`, `linkTexto`, `link`) desde `PaymentMethodForm`. Si `link` queda vacío, se
+  resuelve en `PaymentController::methods()` con el WhatsApp operativo del plan activo
+  (`Plan.whatsapp`).
+- `GET /pagos/balance` expone `primerPagoCoordinado` (ver `api/docs/api-contract.md`) leyendo el
+  método del `Payment` de la PRIMERA orden de inscripción de la familia (`orders.is_registration =
+  true`, la más antigua): si es `COORDINADO_REMOTO` y sigue `PENDIENTE_VERIFICACION`, dispara el
+  banner rojo claro de `/portal` y el de la pantalla de éxito del onboarding. Aprobar ese pago (o
+  reemplazarlo por uno con datos reales) apaga el banner.
+
 ## Descuento por hermanos (F-017)
 
 Configurable **por plan**, no como regla global: cada `Plan` tiene sus propias

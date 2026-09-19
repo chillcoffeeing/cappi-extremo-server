@@ -185,6 +185,56 @@ esta migración (ver `2026_09_18_131730_migrate_platform_settings_to_plans`),
 no se usa como default al crear planes nuevos (los defaults de columna de
 `plans` ya replican los defaults históricos de `platform_settings`).
 
+### `POST /onboarding/{draftId}/step` con `stepId: "pago"` — catálogo real de métodos (F-026)
+
+Bug corregido: el paso "Pago" del wizard de onboarding usaba un catálogo de métodos hardcodeado en
+el portal (`Zelle`/`Transferencia`/`Bolívares`/`Efectivo` con datos bancarios de ejemplo fijos),
+desconectado de `PaymentMethodResource` del admin. Ahora consume `GET /config/metodos-pago` (el
+mismo endpoint que ya usaba `/portal/pagos`, ver `PaymentController::methods()`).
+
+`data.pago.metodo` pasa a guardar el **`code`** del método elegido (ej. `"met_zelle"`), no su
+nombre visible. `CompleteOnboarding::handle()` busca el `PaymentMethod` activo por ese `code`
+(mismo patrón que `PaymentController::store()` con `metodoId`) para poblar `method_code` y
+`method_name` del `Payment` creado; ya no existe el `match` hardcodeado nombre→`methodCode`. Si el
+`code` recibido no calza con ningún `PaymentMethod` activo (draft viejo persistido antes de F-026,
+o método desactivado por el admin entre que se guardó el paso y se completó el onboarding), cae al
+primer método activo disponible en vez de fallar la confirmación del onboarding.
+
+### `PaymentMethod.type` pasa a describir comportamiento, no proveedor (F-023)
+
+`type` (columna `payment_methods.type`, string libre, sin constraint de enum a nivel de BD) deja
+de ser el catálogo cerrado de proveedores `ZELLE|EFECTIVO|TRANSFERENCIA_BS|OTRO` y pasa a un enum
+de 2 valores de **comportamiento**: `DIRECTO` (se reporta el pago en la app con referencia y
+comprobante, comportamiento previo a esta feature) o `COORDINADO_REMOTO` (el primer pago se
+coordina fuera de la app, ej. WhatsApp). El proveedor real (Zelle, Binance, Efectivo o cualquier
+otro que el admin cree desde `/admin/payment-methods`) sigue viviendo en `code`/`name`, catálogo
+abierto sin límite fijo — confirmado antes de esta feature que `type` no se usaba en ninguna regla
+de negocio, solo se mostraba en el form/tabla del admin, así que repropositarlo no tuvo blast
+radius oculto.
+
+- `PaymentMethodForm.php`: el `Select::make('type')` pasa a esas 2 opciones (`->live()` para
+  reactividad). Cuando `type = DIRECTO` se muestran "Instrucciones" y el Repeater "Datos
+  bancarios" (`data.detalle`); cuando `type = COORDINADO_REMOTO` se muestran 4 campos nuevos bajo
+  `data.whatsapp.*`: `mensajeOnboarding`, `mensajeDashboard`, `linkTexto` y `link` (opcional).
+- `PaymentController::methods()`: si `type = COORDINADO_REMOTO` y `data.whatsapp.link` viene
+  vacío, el servidor lo resuelve con el WhatsApp operativo del plan activo (`Plan::operative()
+  ->latest('starts_at')->first()->whatsapp`, columna `plans.whatsapp` ya existente desde antes de
+  esta feature y hasta ahora sin consumidor) como `https://wa.me/{numero}`.
+- `CompleteOnboarding::handle()`: el bloque que crea el `Payment` de la orden de inscripción ya no
+  exige `referencia` no vacía cuando el `PaymentMethod` resuelto es `COORDINADO_REMOTO` — crea el
+  `Payment` igual (`status: PENDIENTE_VERIFICACION`, `reference: null`, `receipt_name: 'Pago
+  coordinado por WhatsApp'`, sin `receipt_path`). Un método `DIRECTO` conserva el comportamiento
+  previo (requiere `referencia`).
+- `GET /pagos/balance` gana el campo `primerPagoCoordinado` (`null` salvo que el `Payment` de la
+  primera orden de inscripción de la familia, `orders.is_registration = true` más antigua, tenga
+  un método `COORDINADO_REMOTO` y siga `PENDIENTE_VERIFICACION`) — nueva Action
+  `App\Actions\Payments\ResolvePendingCoordinatedPayment`, reutilizada tal cual desde el portal
+  para el banner de `/portal` y el de la pantalla de éxito del onboarding (ambos consultan el
+  mismo balance real; no hay un endpoint separado para el banner de éxito).
+- `PaymentMethodSeeder.php`: Zelle/Binance/Efectivo quedan en `DIRECTO` (el admin puede pasar
+  cualquiera a `COORDINADO_REMOTO` desde el panel); Transferencia Bs queda `active=false` en vez
+  de eliminarse — el código ya no depende de su nombre.
+
 ### `POST /participantes/{id}/wizard/step` — validación por paso (F-001)
 
 El body es `{ "stepId": "…", "data": { … } }`. El backend valida el contenido de `data` ANTES de persistir (Action `WizardStepValidator`, reglas idénticas al schema zod del portal):

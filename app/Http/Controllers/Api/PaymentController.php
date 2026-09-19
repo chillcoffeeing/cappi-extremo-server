@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Payments\ResolvePendingCoordinatedPayment;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\StorePaymentRequest;
 use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
+use App\Models\Plan;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
@@ -46,21 +48,42 @@ class PaymentController extends Controller
             'saldo' => max((float) $total - (float) $approved, 0),
             'proximaFechaLimite' => null,
             'moneda' => 'USD',
+            // F-023: null salvo que el primer pago de la orden de inscripción
+            // esté coordinado por WhatsApp y siga pendiente de verificación.
+            'primerPagoCoordinado' => app(ResolvePendingCoordinatedPayment::class)->handle(request()->user()),
         ]);
     }
 
     public function methods(): JsonResponse
     {
+        $plan = Plan::operative()->latest('starts_at')->first();
+
         return response()->json(
             PaymentMethod::where('active', true)->get()->map(
-                fn (PaymentMethod $method): array => [
-                    'id' => $method->code,
-                    'tipo' => $method->type,
-                    'nombre' => $method->name,
-                    'descripcion' => $method->description,
-                    'datos' => $method->data,
-                    'activo' => $method->active,
-                ],
+                function (PaymentMethod $method) use ($plan): array {
+                    $data = $method->data ?? [];
+
+                    // F-023: si el método es COORDINADO_REMOTO y no tiene un
+                    // link propio configurado, se arma con el WhatsApp
+                    // operativo del plan activo en vez de duplicar esa
+                    // lógica en el portal.
+                    if ($method->type === 'COORDINADO_REMOTO') {
+                        $whatsapp = $data['whatsapp'] ?? [];
+                        if (empty($whatsapp['link'])) {
+                            $whatsapp['link'] = $plan?->whatsapp ? "https://wa.me/{$plan->whatsapp}" : null;
+                        }
+                        $data['whatsapp'] = $whatsapp;
+                    }
+
+                    return [
+                        'id' => $method->code,
+                        'tipo' => $method->type,
+                        'nombre' => $method->name,
+                        'descripcion' => $method->description,
+                        'datos' => $data,
+                        'activo' => $method->active,
+                    ];
+                },
             )->values(),
         );
     }

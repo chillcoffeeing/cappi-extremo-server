@@ -9,6 +9,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\Participant;
 use App\Models\Plan;
+use App\Models\PaymentMethod;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Str;
@@ -85,12 +86,22 @@ class CompleteOnboarding
                     : $quote['total'];
                 $planName = $plan->name;
                 $sessionName = trim(($plan->starts_at?->format('Y-m-d') ?? '').' - '.($plan->ends_at?->format('Y-m-d') ?? ''));
-                $paymentMethod = $paymentData['metodo'] ?? 'Zelle';
-                $methodCode = match ($paymentMethod) {
-                    'Efectivo' => 'met_efectivo',
-                    'Transferencia', 'Bolívares' => 'met_transferencia_bs',
-                    default => 'met_zelle',
-                };
+                // F-026: `paymentData['metodo']` ya no es un nombre visible
+                // hardcodeado ('Zelle'/'Efectivo'/...) sino el `code` real del
+                // método elegido en el paso Pago del wizard (ej.
+                // "met_zelle"), el mismo catálogo que /portal/pagos consume
+                // vía PaymentController::methods(). Se busca el PaymentMethod
+                // real, igual que ya hace PaymentController::store(); si el
+                // code no calza con ningún método activo (draft viejo,
+                // método desactivado entre medio, o paso "Pago" nunca
+                // guardado), se cae al primer método activo disponible.
+                $methodCodeInput = $paymentData['metodo'] ?? null;
+                $paymentMethod = $methodCodeInput
+                    ? PaymentMethod::where('code', $methodCodeInput)->where('active', true)->first()
+                    : null;
+                $paymentMethod ??= PaymentMethod::where('active', true)->first();
+                $methodCode = $paymentMethod?->code ?? 'met_zelle';
+                $methodName = $paymentMethod?->name ?? 'Zelle';
                 $items = [[
                     'nombre' => 'Inscripción · '.$planName,
                     'variante' => $sessionName,
@@ -140,7 +151,16 @@ class CompleteOnboarding
                     ]);
                 }
 
-                if ($reportedAmount > 0 && ! empty($paymentData['referencia'])) {
+                // F-023: un método COORDINADO_REMOTO (el primer pago se
+                // coordina fuera de la app, ej. WhatsApp) igual crea el
+                // Payment -- sin referencia ni comprobante, solo la fila que
+                // registra que quedó pendiente de coordinar. Un método
+                // DIRECTO conserva el comportamiento previo: requiere que el
+                // paso "Pago" haya guardado una referencia real.
+                $hasReference = ! empty($paymentData['referencia']);
+                $isCoordinatedRemote = $paymentMethod?->type === 'COORDINADO_REMOTO';
+
+                if ($reportedAmount > 0 && ($hasReference || $isCoordinatedRemote)) {
                     Payment::firstOrCreate(
                         ['idempotency_hash' => hash('sha256', 'onboarding|'.$draft->id)],
                         [
@@ -149,11 +169,11 @@ class CompleteOnboarding
                             'amount' => min($reportedAmount, $quote['total']),
                             'currency' => 'USD',
                             'method_code' => $methodCode,
-                            'method_name' => $paymentMethod,
-                            'reference' => $paymentData['referencia'],
+                            'method_name' => $methodName,
+                            'reference' => $hasReference ? $paymentData['referencia'] : null,
                             'concept' => 'Inscripción - '.$planName,
                             'status' => 'PENDIENTE_VERIFICACION',
-                            'receipt_name' => 'Referencia de onboarding',
+                            'receipt_name' => $hasReference ? 'Referencia de onboarding' : 'Pago coordinado por WhatsApp',
                             'order_uuid' => $registrationOrder->uuid,
                         ],
                     );

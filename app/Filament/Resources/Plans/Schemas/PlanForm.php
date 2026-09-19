@@ -34,14 +34,17 @@ class PlanForm
                                 TextInput::make('name')->required()->columnSpanFull(),
                                 TextInput::make('venue')->label('Sede')->required(),
                                 TextInput::make('season')->label('Temporada')->required(),
-                                TextInput::make('date_label')->label('Etiqueta de fechas'),
-                                TextInput::make('duration_label')->label('Duración'),
+                                TextInput::make('date_label')->label('Etiqueta de fechas')
+                                    ->helperText('Texto libre opcional que reemplaza la fecha de Inicio en el onboarding del portal. Si se deja vacío, se muestra la fecha de Inicio tal cual.'),
+                                TextInput::make('duration_label')->label('Duración')
+                                    ->helperText('Texto libre opcional que reemplaza la duración mostrada en el onboarding del portal. Si se deja vacío, se muestra un texto genérico por defecto ("4 días, llegada y salida diaria").'),
                                 DatePicker::make('starts_at')->label('Inicio')->required(),
                                 DatePicker::make('ends_at')->label('Fin')->required(),
                                 TextInput::make('schedule')->label('Horario'),
                                 TextInput::make('age_min')->label('Edad mínima')->numeric()->required(),
                                 TextInput::make('age_max')->label('Edad máxima')->numeric()->required(),
-                                TextInput::make('whatsapp')->label('WhatsApp operativo'),
+                                TextInput::make('whatsapp')->label('WhatsApp operativo')
+                                    ->helperText('Se usa como respaldo (wa.me/<número>) para métodos de pago "Coordinado remoto" que no tengan su propio link configurado (ver Métodos de pago). Formato esperado: solo dígitos con código de país, sin "+" ni espacios, ej. 584121234567.'),
                                 FileUpload::make('cover_url')->label('Portada')->image(),
                                 Textarea::make('description')->label('Descripción')->columnSpanFull(),
                             ])
@@ -51,19 +54,22 @@ class PlanForm
                                 TextInput::make('price')->label('Precio')->numeric()->prefix('$')->required(),
                                 TextInput::make('currency')->label('Moneda')->required()->default('USD'),
                                 TextInput::make('capacity')->label('Capacidad')->numeric()->required(),
-                                TextInput::make('available_slots')->label('Cupos disponibles')->numeric()->required(),
+                                TextInput::make('available_slots')->label('Cupos disponibles')->numeric()->required()
+                                    ->helperText('Se muestra tal cual en el portal (o la Capacidad si se deja vacío). No se descuenta automáticamente al inscribirse un participante: hay que actualizarlo manualmente.'),
                                 Toggle::make('sibling_discount_enabled')
                                     ->label('Descuento por hermanos activo')
                                     ->default(true)
                                     ->columnSpanFull(),
                                 TextInput::make('sibling_discount_min_participants')
                                     ->label('Mínimo de participantes de la familia')
+                                    ->helperText('Cantidad total de participantes de la misma familia inscritos en este plan a partir de la cual se activa el descuento (se cuentan todos, no solo los adicionales).')
                                     ->numeric()
                                     ->minValue(2)
                                     ->required()
                                     ->default(2),
                                 TextInput::make('sibling_discount_amount')
                                     ->label('Descuento por participante')
+                                    ->helperText('Monto que se resta del precio de CADA participante de la familia (no solo de los adicionales) una vez alcanzado el mínimo de arriba.')
                                     ->numeric()
                                     ->prefix('$')
                                     ->required()
@@ -74,6 +80,7 @@ class PlanForm
                             ->schema([
                                 Repeater::make('mini_market')
                                     ->label('Ítems del mini market')
+                                    ->helperText('Se guarda en el plan, pero el portal todavía no lo muestra en ningún lugar (no forma parte de la respuesta pública del plan activo).')
                                     ->schema([
                                         TextInput::make('nombre')->required(),
                                         TextInput::make('precio')->numeric()->prefix('$'),

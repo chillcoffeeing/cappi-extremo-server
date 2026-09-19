@@ -21,4 +21,9 @@ class OnboardingDraftPolicy
     {
         return $adminUser->can('onboarding.manage');
     }
+
+    public function delete(AdminUser $adminUser, OnboardingDraft $draft): bool
+    {
+        return $adminUser->can('onboarding.manage');
+    }
 }

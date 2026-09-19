@@ -65,7 +65,6 @@ class ParticipantsWizardStepValidationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.datos-basicos.nombre', 'Juan Perez');
 
-        $this->assertDatabaseHas('participants', ['uuid' => $participant->uuid]);
         $this->assertSame('MASCULINO', $participant->refresh()->wizard_steps['datos-basicos']['genero']);
     }
 
