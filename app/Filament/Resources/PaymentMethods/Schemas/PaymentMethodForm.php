@@ -67,7 +67,10 @@ class PaymentMethodForm
                 TextInput::make('data.whatsapp.link')
                     ->label('Link de WhatsApp (opcional)')
                     ->helperText('Si se deja vacío, se arma con el WhatsApp operativo del plan activo.')
-                    ->url()
+                    ->rule('regex:/^https:\/\/(wa\.me|api\.whatsapp\.com)\/.+$/u')
+                    ->validationMessages([
+                        'regex' => 'El link debe empezar con https://wa.me/ o https://api.whatsapp.com/',
+                    ])
                     ->placeholder('https://wa.me/584121234567')
                     ->visible(fn (Get $get): bool => $get('type') === 'COORDINADO_REMOTO'),
             ]);
