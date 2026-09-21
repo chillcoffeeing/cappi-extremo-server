@@ -15,7 +15,7 @@ class SaveParticipantWizardStepRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'stepId' => ['required', 'string', 'in:datos-basicos,salud,contactos-emergencia,encargado-retiro,seguro-medico,autorizaciones'],
+            'stepId' => ['required', 'string', 'in:datos-basicos,salud,contactos-emergencia,encargado-retiro,seguro-medico'],
             'data' => ['present', 'array'],
         ];
     }

@@ -217,20 +217,4 @@ class ParticipantsWizardStepValidationTest extends TestCase
             'noTiene' => false,
         ])->assertOk();
     }
-
-    public function test_autorizaciones_accept_booleans_or_missing(): void
-    {
-        $user = $this->actingUser();
-        $participant = Participant::factory()->create(['user_uuid' => $user->uuid]);
-
-        $this->postStep($participant->uuid, 'autorizaciones', [])->assertOk();
-
-        $this->postStep($participant->uuid, 'autorizaciones', [
-            'autorizaFotos' => true,
-            'autorizaVideo' => false,
-            'autorizaActividadesAcuaticas' => true,
-            'autorizaTraslados' => false,
-            'autorizaAtencionMedicaUrgencia' => true,
-        ])->assertOk();
-    }
 }

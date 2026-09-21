@@ -32,7 +32,7 @@ Los controllers no contienen reglas de negocio. Una Action no recibe `Request`, 
 
 - Auth y cuenta del representante.
 - Onboarding.
-- Participantes, contactos, autorizaciones y fichas individuales.
+- Participantes, contactos y fichas individuales.
 - Plan activo e inscripciones.
 - Pagos y órdenes de tienda.
 - Catálogo.
@@ -47,7 +47,7 @@ Las tablas se crearán únicamente con migraciones. El dinero usa `decimal(16,4)
 
 La primera tabla de dominio es `participants`: guarda la ficha individual, el
 estado `data_completed` que controla el gate del wizard y los bloques JSON de
-salud, contactos de emergencia, encargado de retiro, seguro y autorizaciones.
+salud, contactos de emergencia, encargado de retiro y seguro.
 No se persisten documentos subidos de participantes. Los comprobantes quedan
 reservados al dominio de pagos.
 

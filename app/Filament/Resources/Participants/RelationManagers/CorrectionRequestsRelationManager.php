@@ -36,7 +36,6 @@ class CorrectionRequestsRelationManager extends RelationManager
             'salud' => 'Salud',
             'contactosEmergencia' => 'Contactos de emergencia',
             'seguroMedico' => 'Seguro médico',
-            'autorizaciones' => 'Autorizaciones',
             'documentos' => 'Documentos',
         ];
     }

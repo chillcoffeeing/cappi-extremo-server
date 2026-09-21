@@ -33,8 +33,16 @@ class AdminPanelProvider extends PanelProvider
             ->id('admin')
             ->authGuard('admin')
             ->login()
+            ->brandName('Cappi Xtremo')
+            ->brandLogo(asset('images/cappi-logo.png'))
+            ->brandLogoHeight('2rem')
             ->colors([
-                'primary' => Color::Amber,
+                // Hereda la paleta de marca del portal (portal/src/styles/global.css):
+                // --color-primary (teal) como primary, --color-danger como danger,
+                // y --color-gray-* (escala Tailwind Gray) en vez del Zinc por defecto.
+                'primary' => Color::hex('#008080'),
+                'danger' => Color::hex('#E2574C'),
+                'gray' => Color::Gray,
             ])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\Filament\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')

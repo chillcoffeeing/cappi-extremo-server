@@ -42,7 +42,6 @@ class ParticipantController extends Controller
             'emergency_contacts' => [],
             'pickup_contact' => null,
             'medical_insurance' => [],
-            'authorizations' => [],
             'wizard_steps' => [],
         ]);
 

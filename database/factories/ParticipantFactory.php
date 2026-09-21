@@ -25,7 +25,6 @@ class ParticipantFactory extends Factory
             'emergency_contacts' => [],
             'pickup_contact' => null,
             'medical_insurance' => [],
-            'authorizations' => [],
         ];
     }
 }

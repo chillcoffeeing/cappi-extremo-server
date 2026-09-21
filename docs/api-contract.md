@@ -29,8 +29,8 @@ Implementado y probado:
   (`GET /wizard`, `POST /wizard/step`, `POST /wizard/complete`).
 - `GET /participantes` y `GET /participantes/{id}` incluyen `solicitudesCorreccion`
   (backoffice F-010): lista de `{ id, seccion, mensaje, estado, resolucion, fecha }` creada desde
-  `/admin/participants/{id}`. `seccion` usa las mismas 6 claves que `SectionKey` en el portal
-  (`datosBasicos`, `salud`, `contactosEmergencia`, `seguroMedico`, `autorizaciones`, `documentos`).
+  `/admin/participants/{id}`. `seccion` usa las mismas 5 claves que `SectionKey` en el portal
+  (`datosBasicos`, `salud`, `contactosEmergencia`, `seguroMedico`, `documentos`).
   Ver shape completo en `portal/docs/business-logic/12-api-contrato.md`.
 - Onboarding general: draft persistente, pasos idempotentes y completion.
 - Cuenta, plan activo, pagos, órdenes y catálogo de productos.
@@ -246,7 +246,6 @@ El body es `{ "stepId": "…", "data": { … } }`. El backend valida el contenid
 | `contactos-emergencia` | `contactosEmergencia` requerido array `min:1`; `contactosEmergencia.*.nombre` / `*.telefono` / `*.parentesco` requeridos; `parentesco` `in:Madre,Padre,Tutor,Abuelo/a,Hermano/a,Otro,Padrino,Tío,Participante`   |
 | `encargado-retiro`     | `encargadoRetiro` opcional (`null` o vacío = válido; se normaliza a `null`). Si se llena, `encargadoRetiro.nombre`/`telefono`/`relacion` requeridos y `relacion` con la misma lista `in:`. `documento` opcional. |
 | `seguro-medico`        | Todo opcional/null: `aseguradora`, `poliza`, `telefonoEmergencias` (string) y `noTiene` (boolean, `true` ⇒ sin seguro). NADA requerido.                                                                          |
-| `autorizaciones`       | Todos opcionales boolean: `autorizaFotos`, `autorizaVideo`, `autorizaActividadesAcuaticas`, `autorizaTraslados`, `autorizaAtencionMedicaUrgencia`.                                                               |
 
 Errores de validación → `422`:
 

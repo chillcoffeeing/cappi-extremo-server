@@ -26,7 +26,6 @@ class UpdateParticipantRequest extends FormRequest
             'emergencyContacts' => ['sometimes', 'array'],
             'pickupContact' => ['sometimes', 'nullable', 'array'],
             'medicalInsurance' => ['sometimes', 'array'],
-            'authorizations' => ['sometimes', 'array'],
         ];
     }
 }

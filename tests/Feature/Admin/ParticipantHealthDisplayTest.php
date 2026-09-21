@@ -10,14 +10,14 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Regresion: los tabs Salud/Contactos/Seguro/Autorizaciones mostraban el
- * JSON crudo del bloque en vez de los valores formateados.
+ * Regresion: los tabs Salud/Contactos/Seguro mostraban el JSON crudo del
+ * bloque en vez de los valores formateados.
  */
 class ParticipantHealthDisplayTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_health_contacts_and_authorizations_render_formatted_not_as_raw_json(): void
+    public function test_health_and_contacts_render_formatted_not_as_raw_json(): void
     {
         $this->seed(PermissionSeeder::class);
         $admin = AdminUser::factory()->create();
@@ -39,10 +39,6 @@ class ParticipantHealthDisplayTest extends TestCase
             'medical_insurance' => [
                 'aseguradora' => 'Seguros Universal', 'poliza' => 'POL-8899',
                 'telefonoEmergencias' => '8095550199', 'noTiene' => false,
-            ],
-            'authorizations' => [
-                'autorizaFotos' => true, 'autorizaVideo' => true, 'autorizaActividadesAcuaticas' => false,
-                'autorizaTraslados' => true, 'autorizaAtencionMedicaUrgencia' => true,
             ],
         ]);
 

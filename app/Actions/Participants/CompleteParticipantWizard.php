@@ -10,7 +10,7 @@ class CompleteParticipantWizard
 {
     public function handle(Participant $participant): Participant
     {
-        $required = ['datos-basicos', 'salud', 'contactos-emergencia', 'encargado-retiro', 'seguro-medico', 'autorizaciones'];
+        $required = ['datos-basicos', 'salud', 'contactos-emergencia', 'encargado-retiro', 'seguro-medico'];
         $steps = $participant->wizard_steps ?? [];
         $missing = array_values(array_diff($required, array_keys($steps)));
 
@@ -28,7 +28,6 @@ class CompleteParticipantWizard
             $pickup = $steps['encargado-retiro']['encargadoRetiro']
                 ?? $steps['encargado-retiro'];
             $insurance = $steps['seguro-medico'] ?? [];
-            $authorizations = $steps['autorizaciones'] ?? [];
 
             $participant->update([
                 'name' => $basic['nombre'] ?? $participant->name,
@@ -41,7 +40,6 @@ class CompleteParticipantWizard
                 'emergency_contacts' => is_array($contacts) ? $contacts : [],
                 'pickup_contact' => is_array($pickup) ? $pickup : null,
                 'medical_insurance' => $insurance,
-                'authorizations' => $authorizations,
                 'data_completed' => true,
             ]);
         });

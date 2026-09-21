@@ -14,9 +14,9 @@ use Filament\Schemas\Components\Tabs\Tab;
 use Filament\Schemas\Schema;
 
 /**
- * Salud/contactos/seguro/autorizaciones son de solo lectura: el doc los
- * marca como "mostrar", y el mecanismo de cambio es "solicitar correccion"
- * (el representante corrige desde el portal), no edicion directa del admin.
+ * Salud/contactos/seguro son de solo lectura: el doc los marca como
+ * "mostrar", y el mecanismo de cambio es "solicitar correccion" (el
+ * representante corrige desde el portal), no edicion directa del admin.
  *
  * Se usan componentes de Infolist (TextEntry/IconEntry/RepeatableEntry) en
  * vez de volcar el JSON crudo de cada bloque: en Filament v4, Forms e
@@ -89,22 +89,12 @@ class ParticipantForm
                                 IconEntry::make('pickup_contact.esContactoEmergencia')->label('Es contacto de emergencia')->boolean(),
                             ])
                             ->columns(2),
-                        Tab::make('Seguro y autorizaciones')
+                        Tab::make('Seguro médico')
                             ->schema([
                                 IconEntry::make('medical_insurance.noTiene')->label('No tiene seguro')->boolean(),
                                 TextEntry::make('medical_insurance.aseguradora')->label('Aseguradora')->placeholder('—'),
                                 TextEntry::make('medical_insurance.poliza')->label('Póliza')->placeholder('—'),
                                 TextEntry::make('medical_insurance.telefonoEmergencias')->label('Teléfono de emergencias')->placeholder('—'),
-                                TextEntry::make('authorizations_heading')
-                                    ->hiddenLabel()
-                                    ->state('Autorizaciones')
-                                    ->weight('bold')
-                                    ->columnSpanFull(),
-                                IconEntry::make('authorizations.autorizaFotos')->label('Fotos')->boolean(),
-                                IconEntry::make('authorizations.autorizaVideo')->label('Video')->boolean(),
-                                IconEntry::make('authorizations.autorizaActividadesAcuaticas')->label('Actividades acuáticas')->boolean(),
-                                IconEntry::make('authorizations.autorizaTraslados')->label('Traslados')->boolean(),
-                                IconEntry::make('authorizations.autorizaAtencionMedicaUrgencia')->label('Atención médica de urgencia')->boolean(),
                             ])
                             ->columns(2),
                         Tab::make('Inscripción')

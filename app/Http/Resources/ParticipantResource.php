@@ -30,7 +30,6 @@ class ParticipantResource extends JsonResource
             'salud' => $this->health ?? [],
             'contactosEmergencia' => $this->emergency_contacts ?? [],
             'seguroMedico' => $this->medical_insurance ?? [],
-            'autorizaciones' => $this->authorizations ?? [],
             'encargadoRetiro' => $this->pickup_contact,
             'solicitudesCorreccion' => $this->whenLoaded('correctionRequests', fn () => $this->correctionRequests
                 ->map(fn ($request): array => [

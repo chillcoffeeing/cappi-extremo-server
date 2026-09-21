@@ -46,7 +46,7 @@ paso del wizard (cuenta, participantes, pago, confirmación...).
 ### `ParticipantResource` — implementado (F-006), luego endurecido (F-010/F-014/F-015)
 
 Mostrar datos básicos, ficha completa, representante, inscripción (tab "Inscripción", F-015) y
-bloques de salud/contactos/autorizaciones formateados (no JSON crudo). Acciones: solicitar
+bloques de salud/contactos/seguro formateados (no JSON crudo). Acciones: solicitar
 corrección y marcar revisión.
 Sin crear/eliminar: las fichas nacen del wizard del portal. **F-014:** la ficha completa —
 incluido el tab "Datos básicos" — es de **solo lectura**; el admin ya no edita ningún campo del
