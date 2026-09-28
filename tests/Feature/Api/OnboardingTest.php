@@ -2,12 +2,14 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\User;
-use App\Models\Plan;
 use App\Models\PaymentMethod;
+use App\Models\Plan;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Laravel\Sanctum\Sanctum;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class OnboardingTest extends TestCase
@@ -85,7 +87,11 @@ class OnboardingTest extends TestCase
             ],
         ])->assertOk();
 
-        $this->postJson("/api/onboarding/{$draftId}/complete")
+        // F-035: metodo DIRECTO -> el comprobante del primer pago es obligatorio.
+        Storage::fake('local');
+        $this->post("/api/onboarding/{$draftId}/complete", [
+            'comprobante' => UploadedFile::fake()->image('comprobante.jpg'),
+        ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('status', 'COMPLETADO');
 
@@ -174,7 +180,10 @@ class OnboardingTest extends TestCase
             'data' => ['participantes' => [['nombre' => 'Mateo', 'nacimiento' => '2017-05-05']]],
         ])->assertOk();
 
-        $this->postJson("/api/onboarding/{$draftId}/complete")
+        Storage::fake('local');
+        $this->post("/api/onboarding/{$draftId}/complete", [
+            'comprobante' => UploadedFile::fake()->image('comprobante.png'),
+        ], ['Accept' => 'application/json'])
             ->assertOk()
             ->assertJsonPath('status', 'COMPLETADO');
 

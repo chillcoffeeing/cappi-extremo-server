@@ -54,6 +54,17 @@ class OrderController extends Controller
             return response()->json(['message' => 'El abono mínimo es $20.'], 422);
         }
 
+        $reference = filled($data['referencia'] ?? null) ? (string) $data['referencia'] : null;
+        // F-035: sin referencia (campo opcional) el hash no puede depender de
+        // ella o dos abonos iguales sin referencia chocarian con el indice
+        // unico de `idempotency_hash`.
+        $hashSeed = $reference !== null
+            ? $model->uuid.'|'.$reference.'|'.$data['monto']
+            : $model->uuid.'|sin-referencia|'.$data['monto'].'|'.Str::uuid();
+        if ($reference !== null && Payment::where('idempotency_hash', hash('sha256', $hashSeed))->exists()) {
+            return response()->json(['message' => 'Este pago ya fue reportado. Evita duplicados.'], 422);
+        }
+
         $file = $request->file('comprobante');
         $path = $file->store('comprobantes', 'local');
         Payment::create([
@@ -63,13 +74,13 @@ class OrderController extends Controller
             'currency' => 'USD',
             'method_code' => $data['metodoId'],
             'method_name' => $data['metodoNombre'],
-            'reference' => $data['referencia'],
+            'reference' => $reference,
             'concept' => ($model->is_registration ? 'Inscripción - ' : 'Pedido tienda - ').($model->items[0]['nombre'] ?? 'pedido'),
             'status' => 'PENDIENTE_VERIFICACION',
             'receipt_path' => $path,
             'receipt_name' => $file->getClientOriginalName(),
             'order_uuid' => $model->uuid,
-            'idempotency_hash' => hash('sha256', $model->uuid.'|'.$data['referencia'].'|'.$data['monto']),
+            'idempotency_hash' => hash('sha256', $hashSeed),
         ]);
 
         return response()->json(['data' => (new OrderResource($model->refresh()))->resolve($request)]);

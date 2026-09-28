@@ -224,7 +224,8 @@ radius oculto.
   exige `referencia` no vacía cuando el `PaymentMethod` resuelto es `COORDINADO_REMOTO` — crea el
   `Payment` igual (`status: PENDIENTE_VERIFICACION`, `reference: null`, `receipt_name: 'Pago
   coordinado por WhatsApp'`, sin `receipt_path`). Un método `DIRECTO` conserva el comportamiento
-  previo (requiere `referencia`).
+  previo (requiere `referencia`). **Reemplazado por F-035:** un método `DIRECTO` ahora exige el
+  archivo `comprobante` en el `complete` (ver sección F-035 más abajo).
 - `GET /pagos/balance` gana el campo `primerPagoCoordinado` (`null` salvo que el `Payment` de la
   primera orden de inscripción de la familia, `orders.is_registration = true` más antigua, tenga
   un método `COORDINADO_REMOTO` y siga `PENDIENTE_VERIFICACION`) — nueva Action
@@ -264,6 +265,37 @@ Los mensajes son en español (`WizardStepValidator`). El guardado es idempotente
 ### Migración `participants.gender` NOT NULL (F-001)
 
 `2026_09_17_000001_make_gender_required_on_participants_table`: backfill de nulos a `PREFIERO_NO_DECIR` y `gender` pasa a `nullable(false)`. `CompleteOnboarding`, factories y seeders garantizan `gender` siempre presente.
+
+### Subida de archivos: formatos, fotos y comprobante del onboarding (F-035)
+
+Fuente única de formatos/límites: `app/Support/UploadRules.php` (espejo en el portal:
+`portal/src/lib/uploads.ts`).
+
+| Campo | Endpoints | Formatos | Máx. |
+| --- | --- | --- | --- |
+| `comprobante` | `POST /pagos`, `POST /ordenes/{id}/enlazar-pago`, `POST /onboarding/{draftId}/complete` | `pdf, jpg, jpeg, png, webp, gif, bmp` | 10 MB |
+| `foto` | `PUT /representante/foto`, `PUT /participantes/{id}/foto` | `jpg, jpeg, png, webp, gif, bmp` (regla `image`) | 5 MB |
+
+- HEIC/HEIF **no** se aceptan (Chrome/Filament no los muestran); AVIF se omite porque su
+  detección depende del libmagic del hosting.
+- Errores `422` por campo en español, p. ej.
+  `errors.comprobante: ["El comprobante debe ser PDF, JPG, PNG, WEBP, GIF o BMP."]`,
+  `errors.foto: ["La foto no puede pesar más de 5 MB."]`, `*.uploaded` cuando PHP rechaza el
+  archivo por `upload_max_filesize` (ver `development-and-deployment.md`).
+- **Fotos por method spoofing:** PHP no parsea `multipart/form-data` en un `PUT` real, así que el
+  portal envía `POST` multipart con `_method=PUT` a las mismas rutas `PUT` (Laravel lo enruta
+  igual). Un `PUT` multipart directo llega sin archivo y responde `422 errors.foto`.
+- **`POST /ordenes/{id}/enlazar-pago`:** `referencia` pasa a ser **opcional** (el portal la muestra
+  como "Opcional"; antes era `required` y el pago sin referencia fallaba siempre). Con referencia,
+  un duplicado exacto (orden + referencia + monto) responde `422 "Este pago ya fue reportado. Evita duplicados."`.
+- **`POST /onboarding/{draftId}/complete`** acepta `multipart/form-data` con `comprobante`
+  (opcional a nivel de FormRequest). `CompleteOnboarding::handle($draft, $receipt)` lo exige cuando
+  hay monto a reportar y el método resuelto **no** es `COORDINADO_REMOTO` (método DIRECTO):
+  sin archivo → `422 errors.comprobante: ["Adjunta el comprobante de tu primer pago para completar
+  la inscripción."]` y el onboarding NO se completa. Se guarda en el disco privado `local`
+  (`comprobantes/`) y llena `receipt_path`/`receipt_name` del `Payment`, así que es descargable por
+  `GET /pagos/{payment}/comprobante` y visible en Filament. `COORDINADO_REMOTO` sigue sin
+  comprobante. Si la transacción falla, el archivo guardado se borra.
 
 Las rutas deben tener nombres explícitos, por ejemplo `pagos.index` y `pagos.store`, para que puedan documentarse y consumirse sin dispersar URLs.
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Actions\Onboarding\CompleteOnboarding;
 use App\Actions\Onboarding\SaveOnboardingStep;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CompleteOnboardingRequest;
 use App\Http\Requests\SaveOnboardingStepRequest;
 use App\Http\Resources\OnboardingDraftResource;
 use App\Models\OnboardingDraft;
@@ -34,9 +35,9 @@ class OnboardingController extends Controller
         ]);
     }
 
-    public function complete(string $draftId, CompleteOnboarding $action, Request $request): JsonResponse
+    public function complete(CompleteOnboardingRequest $request, string $draftId, CompleteOnboarding $action): JsonResponse
     {
-        $draft = $action->handle($this->draft($draftId));
+        $draft = $action->handle($this->draft($draftId), $request->file('comprobante'));
 
         return response()->json([
             'draft' => (new OnboardingDraftResource($draft))->resolve($request),

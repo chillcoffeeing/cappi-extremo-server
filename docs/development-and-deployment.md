@@ -42,6 +42,30 @@ php artisan storage:link
 
 Variables esenciales: `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY` real, `APP_URL` real, credenciales MySQL, CORS para el subdominio del portal y `QUEUE_CONNECTION=sync` salvo cron configurado.
 
+### Límites de subida de archivos (F-035)
+
+El API acepta comprobantes de hasta **10 MB** y fotos de hasta **5 MB**
+(`app/Support/UploadRules.php`). Los defaults de PHP (`upload_max_filesize=2M`,
+`post_max_size=8M`) hacen que una foto de celular de 3-5 MB falle con
+"no se pudo subir" y que un envío mayor a 8 MB responda `413`. Requerido en
+el servidor (y en el PHP local de desarrollo):
+
+| Directiva             | Valor mínimo |
+| --------------------- | ------------ |
+| `upload_max_filesize` | `12M`        |
+| `post_max_size`       | `16M`        |
+| `client_max_body_size` (solo si hay nginx delante) | `16m` |
+
+- `api/public/.user.ini` ya fija esos valores para PHP-FPM/CGI/LSAPI
+  (hosting compartido con docroot en `api/public`). Puede tardar hasta
+  `user_ini.cache_ttl` (5 min) en aplicarse.
+- Si el hosting ignora `.user.ini` (mod_php), fijarlos en cPanel → *MultiPHP
+  INI Editor* / *Select PHP Version → Options*.
+- En local (`php artisan serve` usa el `php.ini` del CLI), editar el
+  `php.ini` que muestra `php --ini`.
+- Comprobar con `php -r 'echo ini_get("upload_max_filesize"), " ", ini_get("post_max_size");'`
+  o una ruta temporal con `phpinfo()` en el servidor.
+
 Escribir únicamente en `storage/` y `bootstrap/cache/`. No versionar `.env`, `vendor/`, `node_modules/` ni `public/build/`.
 
 ## Verificación de entrega

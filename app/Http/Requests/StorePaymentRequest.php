@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\UploadRules;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StorePaymentRequest extends FormRequest
@@ -19,7 +20,13 @@ class StorePaymentRequest extends FormRequest
             'monto' => ['required', 'numeric', 'min:20'],
             'fecha' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'referencia' => ['required', 'string', 'max:255'],
-            'comprobante' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png', 'max:10240'],
+            'comprobante' => UploadRules::receipt(),
         ];
+    }
+
+    /** @return array<string, string> */
+    public function messages(): array
+    {
+        return UploadRules::receiptMessages();
     }
 }

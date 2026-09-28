@@ -7,6 +7,8 @@ use App\Actions\Onboarding\CompleteOnboarding;
 use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -48,7 +50,9 @@ class SiblingDiscountTest extends TestCase
             'status' => 'COMPLETADO',
         ]);
 
-        app(CompleteOnboarding::class)->handle($draft);
+        // F-035: un metodo DIRECTO exige el comprobante del primer pago.
+        Storage::fake('local');
+        app(CompleteOnboarding::class)->handle($draft, UploadedFile::fake()->image('comprobante.jpg'));
     }
 
     public function test_pricing_single_participant_is_full(): void
