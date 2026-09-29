@@ -17,7 +17,7 @@ class StorePaymentRequest extends FormRequest
     {
         return [
             'metodoId' => ['required', 'string', 'max:80'],
-            'monto' => ['required', 'numeric', 'min:20'],
+            'monto' => ['required', 'numeric', 'min:20', 'decimal:0,2'],
             'fecha' => ['required', 'date_format:Y-m-d', 'before_or_equal:today'],
             'referencia' => ['required', 'string', 'max:255'],
             'comprobante' => UploadRules::receipt(),
@@ -27,6 +27,9 @@ class StorePaymentRequest extends FormRequest
     /** @return array<string, string> */
     public function messages(): array
     {
-        return UploadRules::receiptMessages();
+        return [
+            ...UploadRules::receiptMessages(),
+            'monto.decimal' => 'El monto admite como máximo 2 decimales.',
+        ];
     }
 }

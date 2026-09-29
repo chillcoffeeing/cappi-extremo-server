@@ -34,6 +34,39 @@ class Payment extends Model
         return $this->belongsTo(AdminUser::class, 'reviewed_by', 'uuid');
     }
 
+    /**
+     * F-052 (A-1): un pago RECHAZADO no cuenta como duplicado. Solo los
+     * pagos pendientes o aprobados bloquean un nuevo reporte con el mismo
+     * hash de idempotencia.
+     */
+    public static function isDuplicateReport(string $hash): bool
+    {
+        return static::where('idempotency_hash', $hash)
+            ->where('status', '!=', 'RECHAZADO')
+            ->exists();
+    }
+
+    /**
+     * F-052 (A-1): libera el hash de los pagos RECHAZADOS que todavia lo
+     * ocupan (datos anteriores a que RejectPayment lo reescribiera), para que
+     * el nuevo reporte no choque con el indice unico `idempotency_hash`.
+     */
+    public static function releaseRejectedHash(string $hash): void
+    {
+        static::where('idempotency_hash', $hash)
+            ->where('status', 'RECHAZADO')
+            ->get()
+            ->each(fn (Payment $payment) => $payment->update([
+                'idempotency_hash' => $payment->releasedIdempotencyHash(),
+            ]));
+    }
+
+    /** Hash unico que reemplaza al original cuando el pago se rechaza. */
+    public function releasedIdempotencyHash(): string
+    {
+        return hash('sha256', 'rejected|'.$this->uuid.'|'.$this->idempotency_hash);
+    }
+
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()

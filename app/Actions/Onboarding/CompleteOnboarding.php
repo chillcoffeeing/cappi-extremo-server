@@ -181,7 +181,9 @@ class CompleteOnboarding
                 // F-035: un método DIRECTO exige el comprobante del primer
                 // pago (antes bastaba la referencia y el botón del portal no
                 // subía nada). Sin comprobante -> 422 `errors.comprobante`.
-                $hasReference = ! empty($paymentData['referencia']);
+                // F-052 (A-3): una referencia hecha solo de espacios no cuenta.
+                $reference = trim((string) ($paymentData['referencia'] ?? ''));
+                $hasReference = $reference !== '';
                 $isCoordinatedRemote = $paymentMethod?->type === 'COORDINADO_REMOTO';
                 $idempotencyHash = hash('sha256', 'onboarding|'.$draft->id);
 
@@ -189,10 +191,18 @@ class CompleteOnboarding
                     $alreadyReported = Payment::where('idempotency_hash', $idempotencyHash)->exists();
 
                     if (! $alreadyReported) {
+                        // F-052 (A-3): un método DIRECTO exige referencia y
+                        // comprobante en el servidor (antes solo el cliente
+                        // exigía la referencia). Se informan ambos a la vez.
+                        $errors = [];
+                        if (! $hasReference) {
+                            $errors['referencia'] = ['Ingresa el número de referencia del pago.'];
+                        }
                         if (! $receipt) {
-                            throw ValidationException::withMessages([
-                                'comprobante' => ['Adjunta el comprobante de tu primer pago para completar la inscripción.'],
-                            ]);
+                            $errors['comprobante'] = ['Adjunta el comprobante de tu primer pago para completar la inscripción.'];
+                        }
+                        if ($errors !== []) {
+                            throw ValidationException::withMessages($errors);
                         }
 
                         $storedReceiptPath = $receipt->store('comprobantes', 'local');
@@ -204,7 +214,7 @@ class CompleteOnboarding
                             'currency' => 'USD',
                             'method_code' => $methodCode,
                             'method_name' => $methodName,
-                            'reference' => $hasReference ? $paymentData['referencia'] : null,
+                            'reference' => $reference,
                             'concept' => 'Inscripción - '.$planName,
                             'status' => 'PENDIENTE_VERIFICACION',
                             'receipt_path' => $storedReceiptPath,

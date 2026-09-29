@@ -2,13 +2,19 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Payments\CompleteCoordinatedPayment;
+use App\Actions\Payments\LinkOrderPayment;
 use App\Actions\Payments\ResolvePendingCoordinatedPayment;
+use App\Exceptions\PaymentActionException;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CompleteCoordinatedPaymentRequest;
 use App\Http\Requests\StorePaymentRequest;
+use App\Http\Resources\OrderResource;
 use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Plan;
+use App\Support\Money;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Storage;
@@ -50,6 +56,7 @@ class PaymentController extends Controller
             'moneda' => 'USD',
             // F-023: null salvo que el primer pago de la orden de inscripción
             // esté coordinado por WhatsApp y siga pendiente de verificación.
+            // F-051: incluye ordenId, pagoId y monto de ese pago.
             'primerPagoCoordinado' => app(ResolvePendingCoordinatedPayment::class)->handle(request()->user()),
         ]);
     }
@@ -75,6 +82,13 @@ class PaymentController extends Controller
                         $data['whatsapp'] = $whatsapp;
                     }
 
+                    // F-046: el contrato garantiza `instrucciones` (string) y
+                    // `detalle` (array) para TODO método; un COORDINADO_REMOTO
+                    // creado desde Filament solo guarda `whatsapp`, y el
+                    // portal ("Realizar pago" / FAB) hace `detalle.map`.
+                    $data['instrucciones'] = (string) ($data['instrucciones'] ?? '');
+                    $data['detalle'] = array_values($data['detalle'] ?? []);
+
                     return [
                         'id' => $method->code,
                         'tipo' => $method->type,
@@ -91,10 +105,13 @@ class PaymentController extends Controller
     public function store(StorePaymentRequest $request): JsonResponse
     {
         $data = $request->validated();
-        $hash = hash('sha256', implode('|', [request()->user()->uuid, $data['monto'], $data['fecha'], $data['referencia']]));
-        if (Payment::where('idempotency_hash', $hash)->exists()) {
-            return response()->json(['message' => 'Este pago ya fue reportado. Evita duplicados.'], 422);
+        // F-052 (A-1/A-7): monto normalizado en el hash; un pago RECHAZADO
+        // no bloquea el re-reporte (se libera su hash antes de crear).
+        $hash = hash('sha256', implode('|', [request()->user()->uuid, Money::normalize($data['monto']), $data['fecha'], $data['referencia']]));
+        if (Payment::isDuplicateReport($hash)) {
+            return response()->json(['message' => LinkOrderPayment::DUPLICATE_MESSAGE], 422);
         }
+        Payment::releaseRejectedHash($hash);
 
         $method = PaymentMethod::where('code', $data['metodoId'])->where('active', true)->first();
         if (! $method) {
@@ -121,6 +138,23 @@ class PaymentController extends Controller
         return response()->json([
             'data' => (new PaymentResource($payment))->resolve($request),
         ], 201);
+    }
+
+    /**
+     * F-051: completa el pago coordinado pendiente del onboarding (el que
+     * dispara el banner `primerPagoCoordinado`) con metodo, monto, referencia
+     * y comprobante, sin crear un segundo Payment. Responde la orden
+     * actualizada, igual que enlazar-pago.
+     */
+    public function completeCoordinated(CompleteCoordinatedPaymentRequest $request, string $payment, CompleteCoordinatedPayment $action): JsonResponse
+    {
+        try {
+            $order = $action->handle(request()->user(), $payment, $request->validated(), $request->file('comprobante'));
+        } catch (PaymentActionException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
+        }
+
+        return response()->json(['data' => (new OrderResource($order))->resolve($request)]);
     }
 
     /**

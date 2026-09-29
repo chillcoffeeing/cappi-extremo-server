@@ -37,6 +37,28 @@ class Order extends Model
         return $this->hasMany(Payment::class, 'order_uuid', 'uuid');
     }
 
+    /** Saldo contable: total - abonado (solo pagos APROBADOS suman a `paid`). */
+    public function balance(): float
+    {
+        return round((float) $this->total - (float) $this->paid, 4);
+    }
+
+    /** Suma de los pagos de esta orden que siguen PENDIENTE_VERIFICACION. */
+    public function pendingVerificationAmount(): float
+    {
+        return round((float) $this->payments()->where('status', 'PENDIENTE_VERIFICACION')->sum('amount'), 4);
+    }
+
+    /**
+     * F-047: saldo reportable = saldo - pagos en revisión. Es el máximo que el
+     * representante puede reportar ahora sin que la suma de reportes supere
+     * el saldo (hallazgo H-1 de F-046). Nunca negativo.
+     */
+    public function reportableBalance(): float
+    {
+        return max(0.0, round($this->balance() - $this->pendingVerificationAmount(), 4));
+    }
+
     public function cancelledBy(): BelongsTo
     {
         return $this->belongsTo(AdminUser::class, 'cancelled_by', 'uuid');

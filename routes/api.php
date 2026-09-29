@@ -71,6 +71,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/pagos/balance', [PaymentController::class, 'balance'])->name('payments.balance');
     Route::get('/config/metodos-pago', [PaymentController::class, 'methods'])->name('payment-methods.index');
     Route::post('/pagos', [PaymentController::class, 'store'])->name('payments.store');
+    Route::post('/pagos/{payment}/completar-coordinado', [PaymentController::class, 'completeCoordinated'])
+        ->name('payments.complete-coordinated');
     Route::get('/pagos/{payment}/comprobante', [PaymentController::class, 'receipt'])->name('payments.receipt');
     Route::get('/ordenes', [OrderController::class, 'index'])->name('orders.index');
     Route::post('/ordenes', [OrderController::class, 'store'])->name('orders.store');

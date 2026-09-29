@@ -25,6 +25,10 @@ class RejectPayment
 
             $payment->update([
                 'status' => 'RECHAZADO',
+                // F-052 (A-1): libera el hash de idempotencia para que el
+                // representante pueda reportar de nuevo la misma
+                // transferencia (misma referencia y monto).
+                'idempotency_hash' => $payment->releasedIdempotencyHash(),
                 'rejection_reason' => $reason,
                 'reviewed_by' => $actor->uuid,
                 'reviewed_at' => now(),

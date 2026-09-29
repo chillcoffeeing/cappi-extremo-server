@@ -16,14 +16,15 @@ class LinkOrderPaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'monto' => ['required', 'numeric', 'min:0.01'],
+            // F-052 (A-7): maximo 2 decimales (evita 20.12345 -> 20.1235 en BD).
+            'monto' => ['required', 'numeric', 'min:0.01', 'decimal:0,2'],
             'esCompleto' => ['required', 'boolean'],
             'metodoId' => ['required', 'string'],
             'metodoNombre' => ['required', 'string'],
-            // F-035: el portal la muestra como "Opcional" y envia "" cuando
-            // queda vacia (ConvertEmptyStringsToNull la vuelve null); antes era
-            // `required` y "Realizar pago" sin referencia fallaba siempre.
-            'referencia' => ['nullable', 'string', 'max:255'],
+            // F-049: vuelve a ser obligatoria (revierte F-035), igual que el
+            // onboarding DIRECTO. TrimStrings + ConvertEmptyStringsToNull
+            // convierten "" y "   " en null, asi que `required` los rechaza.
+            'referencia' => ['required', 'string', 'max:255'],
             'comprobante' => UploadRules::receipt(),
         ];
     }
@@ -31,6 +32,11 @@ class LinkOrderPaymentRequest extends FormRequest
     /** @return array<string, string> */
     public function messages(): array
     {
-        return UploadRules::receiptMessages();
+        return [
+            ...UploadRules::receiptMessages(),
+            'referencia.required' => 'Ingresa el número de referencia del pago.',
+            'referencia.max' => 'La referencia no puede superar 255 caracteres.',
+            'monto.decimal' => 'El monto admite como máximo 2 decimales.',
+        ];
     }
 }

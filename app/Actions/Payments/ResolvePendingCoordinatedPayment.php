@@ -11,12 +11,12 @@ use App\Models\User;
  * onboarding) se activan leyendo el método de pago del `Payment` de la
  * PRIMERA orden de inscripción de la familia (`orders.is_registration =
  * true`, la más antigua). Si ese método es COORDINADO_REMOTO y el pago
- * sigue PENDIENTE_VERIFICACION, se devuelven los textos/link configurados
+ * sigue PENDIENTE_VERIFICACION sin comprobante (F-052 B-1), se devuelven los textos/link configurados
  * en el método para pintar el banner; en cualquier otro caso, null.
  */
 class ResolvePendingCoordinatedPayment
 {
-    /** @return array<string, string|null>|null */
+    /** @return array<string, string|float|null>|null */
     public function handle(User $user): ?array
     {
         $registrationOrder = $user->orders()
@@ -28,9 +28,21 @@ class ResolvePendingCoordinatedPayment
             return null;
         }
 
-        $payment = $registrationOrder->payments()->oldest('id')->first();
+        // F-052 (B-1): solo el placeholder del onboarding activa el banner:
+        // el Payment COORDINADO_REMOTO que CompleteOnboarding crea SIN
+        // comprobante ni referencia. Un reporte hecho desde el portal
+        // (enlazar-pago / POST /pagos) siempre trae ambos, aunque use un
+        // método COORDINADO_REMOTO, así que nunca cuenta. Cuando el
+        // placeholder se completa con comprobante (F-051,
+        // CompleteCoordinatedPayment), el banner se apaga.
+        $payment = $registrationOrder->payments()
+            ->where('status', 'PENDIENTE_VERIFICACION')
+            ->whereNull('receipt_path')
+            ->whereNull('reference')
+            ->oldest('id')
+            ->first();
 
-        if (! $payment || $payment->status !== 'PENDIENTE_VERIFICACION') {
+        if (! $payment) {
             return null;
         }
 
@@ -49,6 +61,11 @@ class ResolvePendingCoordinatedPayment
         }
 
         return [
+            // F-051: el portal abre el modal de pago con la orden de
+            // inscripcion preseleccionada y completa ESTE pago (no crea otro).
+            'ordenId' => $registrationOrder->uuid,
+            'pagoId' => $payment->uuid,
+            'monto' => (float) $payment->amount,
             'metodoNombre' => $method->name,
             'mensajeOnboarding' => $whatsapp['mensajeOnboarding'] ?? '',
             'mensajeDashboard' => $whatsapp['mensajeDashboard'] ?? '',

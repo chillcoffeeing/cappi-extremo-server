@@ -66,6 +66,8 @@ y el replay del token anterior devuelve `401`.
 - `GET /inscripciones/{participante}/detalle`
 - `GET /pagos/balance`
 - `GET|POST /pagos`
+- `POST /pagos/{payment}/completar-coordinado` — completa el pago coordinado pendiente del
+  onboarding (F-051; ver notas más abajo)
 - `GET /pagos/{payment}/comprobante` — descarga el comprobante (disco privado `local`); solo el
   representante dueño del pago, `404` para cualquier otro usuario (backoffice F-004)
 - `GET|POST /ordenes`
@@ -223,15 +225,20 @@ radius oculto.
 - `CompleteOnboarding::handle()`: el bloque que crea el `Payment` de la orden de inscripción ya no
   exige `referencia` no vacía cuando el `PaymentMethod` resuelto es `COORDINADO_REMOTO` — crea el
   `Payment` igual (`status: PENDIENTE_VERIFICACION`, `reference: null`, `receipt_name: 'Pago
-  coordinado por WhatsApp'`, sin `receipt_path`). Un método `DIRECTO` conserva el comportamiento
-  previo (requiere `referencia`). **Reemplazado por F-035:** un método `DIRECTO` ahora exige el
-  archivo `comprobante` en el `complete` (ver sección F-035 más abajo).
-- `GET /pagos/balance` gana el campo `primerPagoCoordinado` (`null` salvo que el `Payment` de la
-  primera orden de inscripción de la familia, `orders.is_registration = true` más antigua, tenga
-  un método `COORDINADO_REMOTO` y siga `PENDIENTE_VERIFICACION`) — nueva Action
+  coordinado por WhatsApp'`, sin `receipt_path`). Un método `DIRECTO` exige `referencia` no vacía
+  (tras `trim`) y el archivo `comprobante` en el `complete` (F-035 + F-052; ver sección F-035 más
+  abajo). Hasta F-052 la referencia solo se exigía en el cliente.
+- `GET /pagos/balance` gana el campo `primerPagoCoordinado` (`null` salvo que la primera orden de
+  inscripción de la familia, `orders.is_registration = true` más antigua, tenga el **pago
+  placeholder del onboarding**: `PENDIENTE_VERIFICACION`, sin comprobante (`receipt_path` null) y
+  sin referencia, con un método `COORDINADO_REMOTO`; F-052 B-1: un pago reportado desde el portal
+  con un método `COORDINADO_REMOTO` siempre trae comprobante y referencia, así que no activa el
+  banner) — nueva Action
   `App\Actions\Payments\ResolvePendingCoordinatedPayment`, reutilizada tal cual desde el portal
   para el banner de `/portal` y el de la pantalla de éxito del onboarding (ambos consultan el
   mismo balance real; no hay un endpoint separado para el banner de éxito).
+  **F-051:** `primerPagoCoordinado` incluye además `ordenId` (uuid de esa orden de inscripción),
+  `pagoId` (uuid del Payment placeholder) y `monto` (number, monto declarado en el onboarding).
 - `PaymentMethodSeeder.php`: Zelle/Binance/Efectivo quedan en `DIRECTO` (el admin puede pasar
   cualquiera a `COORDINADO_REMOTO` desde el panel); Transferencia Bs queda `active=false` en vez
   de eliminarse — el código ya no depende de su nombre.
@@ -285,14 +292,78 @@ Fuente única de formatos/límites: `app/Support/UploadRules.php` (espejo en el 
 - **Fotos por method spoofing:** PHP no parsea `multipart/form-data` en un `PUT` real, así que el
   portal envía `POST` multipart con `_method=PUT` a las mismas rutas `PUT` (Laravel lo enruta
   igual). Un `PUT` multipart directo llega sin archivo y responde `422 errors.foto`.
-- **`POST /ordenes/{id}/enlazar-pago`:** `referencia` pasa a ser **opcional** (el portal la muestra
-  como "Opcional"; antes era `required` y el pago sin referencia fallaba siempre). Con referencia,
-  un duplicado exacto (orden + referencia + monto) responde `422 "Este pago ya fue reportado. Evita duplicados."`.
+- **`POST /ordenes/{id}/enlazar-pago` — referencia obligatoria (F-049, revierte F-035):**
+  `referencia` es `required|string|max:255`; vacía o solo espacios (TrimStrings +
+  ConvertEmptyStringsToNull) → `422 errors.referencia: ["Ingresa el número de referencia del pago."]`.
+  Aplica a métodos `DIRECTO` y `COORDINADO_REMOTO`, igual que el onboarding `DIRECTO`. El
+  `idempotency_hash` es siempre `sha256(orden + referencia + monto normalizado a 2 decimales)`: un
+  duplicado exacto responde `422 "Este pago ya fue reportado. Evita duplicados."`.
+- **Duplicados y pagos rechazados (F-052 A-1):** en `enlazar-pago` y en `POST /pagos` el chequeo
+  de duplicado ignora los pagos `RECHAZADO`: tras un rechazo el representante puede reportar de
+  nuevo la misma transferencia (misma referencia y mismo monto) → `200`/`201`. Un pago
+  `PENDIENTE_VERIFICACION` o `APROBADO` idéntico sigue respondiendo `422 "Este pago ya fue
+  reportado. Evita duplicados."`. `RejectPayment` reescribe el `idempotency_hash` del pago
+  rechazado (queda libre el índice único); los rechazados antiguos que aún conserven el hash se
+  liberan al llegar el nuevo reporte (`Payment::releaseRejectedHash`).
+- **Monto con máximo 2 decimales (F-052 A-7):** `monto` en `enlazar-pago` y `POST /pagos` valida
+  `decimal:0,2` → `422 errors.monto: ["El monto admite como máximo 2 decimales."]`. El hash usa el
+  monto normalizado (`20`, `20.0` y `20.00` son el mismo pago).
+- **Orden cancelada (F-052 A-2):** `enlazar-pago` sobre una orden `CANCELADA` →
+  `422 "Esta orden está cancelada."`. `ApprovePayment` se niega a aprobar un pago de una orden
+  cancelada (Filament muestra "No se puede aprobar un pago de una orden cancelada. Recházalo.") y
+  la orden sigue `CANCELADA`.
+- **Concurrencia (F-052 A-8):** la validación y la creación del pago ocurren en
+  `App\Actions\Payments\LinkOrderPayment` dentro de `DB::transaction` con la orden bloqueada
+  (`lockForUpdate`). Si dos envíos idénticos simultáneos chocan con el índice único, el segundo
+  responde `422 "Este pago ya fue reportado. Evita duplicados."` (no `500`). Orden inexistente o
+  ajena → `404`.
+- **`POST /ordenes/{id}/enlazar-pago` — saldo reportable (F-047):** el monto se valida contra el
+  **saldo reportable** = `total - paid - Σ(pagos PENDIENTE_VERIFICACION de la orden)`
+  (`Order::reportableBalance()`), no contra el saldo contable, para que la suma de reportes en
+  revisión nunca supere el saldo. Saldo contable 0 → `422 "Esta orden ya está pagada; no tiene
+  saldo pendiente."`; saldo reportable 0 → `422 "Esta orden ya tiene pagos en revisión que cubren
+  el saldo pendiente. Espera a que se verifiquen."`; monto mayor con pagos en revisión →
+  `422 "El monto no puede superar el saldo por reportar ($250.00): la orden tiene $50.00 en pagos en
+  revisión."` (sin pagos en revisión el mensaje sigue siendo `"El monto no puede superar el saldo
+  pendiente."`). Los pagos `RECHAZADO` no descuentan. El portal aplica la misma regla
+  (`EnlazarPagoForm`, vía `usePendientePorOrden`).
+- **`POST /ordenes/{id}/enlazar-pago` — `abonado` (F-048):** enlazar/reportar un pago crea un
+  `Payment` en `PENDIENTE_VERIFICACION` y responde la orden **sin cambiar `abonado` (`paid`) ni
+  `estado`**. `abonado` solo aumenta cuando el admin aprueba el pago (`App\Actions\Payments\ApprovePayment`:
+  `paid += amount`, `status` = `PAGADA` si `paid >= total`, sino `PENDIENTE_PAGO`); rechazar no lo toca.
+- **Montos en mensajes (F-048, F-052 A-4):** formato único compartido con el portal
+  (`portal/src/lib/money.ts` → `formatMonto`): 2 decimales fijos, punto decimal y coma de miles
+  (`250.5` → `$250.50`, `1250.5` → `$1,250.50`; `App\Support\Money::format`). Incluye el mínimo:
+  `422 "El abono mínimo es $20.00."`.
+- **`POST /pagos/{payment}/completar-coordinado` (F-051):** botón "Reportar acá" del banner
+  `primerPagoCoordinado` de `/portal`. **No crea un Payment nuevo:** completa el placeholder del
+  onboarding (mismo registro) — Action `App\Actions\Payments\CompleteCoordinatedPayment`,
+  reutiliza las reglas de `LinkOrderPayment` (`assertCanReport`, `reportHash`). Body
+  `multipart/form-data` igual que enlazar-pago (`CompleteCoordinatedPaymentRequest` extiende
+  `LinkOrderPaymentRequest`): `monto` (`decimal:0,2`), `esCompleto`, `metodoId`, `metodoNombre`
+  (opcional; el nombre se toma del método en BD), `referencia` y `comprobante` obligatorios.
+  Respuesta `200 { data: OrdenTienda }` (la orden de inscripción, sin cambios en `abonado`).
+  El pago se actualiza con método (cualquier método **activo**), monto, referencia, comprobante,
+  `paid_at` = hoy e `idempotency_hash` = el de un reporte normal (orden + referencia + monto), así
+  que un enlazar-pago posterior idéntico es duplicado; conserva `concept` y `order_uuid` y sigue
+  `PENDIENTE_VERIFICACION` (flujo normal aprobar/rechazar del admin). El banner se apaga solo
+  (`receipt_path`/`reference` ya no son null). Transacción con el pago y la orden bloqueados.
+  Errores: pago inexistente o de otro usuario → `404`; pago ya completado (con comprobante o
+  referencia; también el doble envío) → `422 "Este pago ya fue reportado. Evita duplicados."`;
+  pago aprobado/rechazado → `422 "Este pago ya fue verificado; no se puede modificar."`; pago que
+  no es de una orden de inscripción o cuyo método no es `COORDINADO_REMOTO` →
+  `422 "Este pago no es un pago coordinado pendiente de tu inscripción."`; método inactivo →
+  `422 "Método de pago no disponible."`; orden cancelada, abono mínimo, duplicado y errores de
+  campo como en enlazar-pago. **Saldo reportable sin contar ese mismo pago:**
+  `total - paid - (Σ pendientes - monto del placeholder)`; si el placeholder era de modalidad
+  completo, se puede reportar hasta el saldo completo.
 - **`POST /onboarding/{draftId}/complete`** acepta `multipart/form-data` con `comprobante`
   (opcional a nivel de FormRequest). `CompleteOnboarding::handle($draft, $receipt)` lo exige cuando
   hay monto a reportar y el método resuelto **no** es `COORDINADO_REMOTO` (método DIRECTO):
   sin archivo → `422 errors.comprobante: ["Adjunta el comprobante de tu primer pago para completar
-  la inscripción."]` y el onboarding NO se completa. Se guarda en el disco privado `local`
+  la inscripción."]` y el onboarding NO se completa. **F-052 (A-3):** en el mismo caso la
+  `referencia` guardada en el paso `pago` es obligatoria (vacía o solo espacios →
+  `422 errors.referencia: ["Ingresa el número de referencia del pago."]`, ambos errores a la vez). Se guarda en el disco privado `local`
   (`comprobantes/`) y llena `receipt_path`/`receipt_name` del `Payment`, así que es descargable por
   `GET /pagos/{payment}/comprobante` y visible en Filament. `COORDINADO_REMOTO` sigue sin
   comprobante. Si la transacción falla, el archivo guardado se borra.

@@ -35,6 +35,12 @@ class ApprovePayment
             if ($payment->order_uuid) {
                 $order = $payment->order()->lockForUpdate()->first();
 
+                // F-052 (A-2): aprobar sobre una orden cancelada la "revivia"
+                // (CANCELADA -> PENDIENTE_PAGO/PAGADA).
+                if ($order?->status === 'CANCELADA') {
+                    throw new PaymentActionException('No se puede aprobar un pago de una orden cancelada. Recházalo.');
+                }
+
                 $balance = (float) $order->total - (float) $order->paid;
                 if ((float) $payment->amount > $balance) {
                     throw new PaymentActionException('El monto del pago supera el saldo pendiente de la orden.');

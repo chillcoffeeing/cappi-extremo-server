@@ -95,6 +95,27 @@ class CoordinatedPaymentTest extends TestCase
             ->assertJsonPath('0.datos.whatsapp.link', 'https://wa.me/1234567890');
     }
 
+    public function test_methods_endpoint_always_exposes_instrucciones_and_detalle(): void
+    {
+        // F-046: un COORDINADO_REMOTO guardado desde Filament solo trae
+        // `whatsapp`; el portal espera `instrucciones` y `detalle` siempre.
+        $this->makePlan('584121234567');
+        PaymentMethod::create([
+            'code' => 'met_zelle',
+            'type' => 'COORDINADO_REMOTO',
+            'name' => 'Zelle',
+            'description' => 'Coordina tu primer pago por WhatsApp.',
+            'data' => ['whatsapp' => ['mensajeOnboarding' => '', 'mensajeDashboard' => '', 'linkTexto' => '', 'link' => '']],
+            'active' => true,
+        ]);
+        Sanctum::actingAs(User::factory()->create());
+
+        $this->getJson('/api/config/metodos-pago')
+            ->assertOk()
+            ->assertJsonPath('0.datos.instrucciones', '')
+            ->assertJsonPath('0.datos.detalle', []);
+    }
+
     public function test_onboarding_completion_creates_payment_without_reference_for_coordinated_remote_method(): void
     {
         $plan = $this->makePlan();

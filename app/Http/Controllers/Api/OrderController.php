@@ -2,14 +2,14 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Payments\LinkOrderPayment;
+use App\Exceptions\PaymentActionException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LinkOrderPaymentRequest;
 use App\Http\Requests\StoreOrderRequest;
 use App\Http\Resources\OrderResource;
-use App\Models\Payment;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Str;
 
 class OrderController extends Controller
 {
@@ -37,52 +37,19 @@ class OrderController extends Controller
         return response()->json(['data' => (new OrderResource($order))->resolve($request)], 201);
     }
 
-    public function linkPayment(LinkOrderPaymentRequest $request, string $order): JsonResponse
+    public function linkPayment(LinkOrderPaymentRequest $request, string $order, LinkOrderPayment $action): JsonResponse
     {
+        // Orden inexistente o ajena -> 404.
         $model = request()->user()->orders()
             ->where('uuid', $order)
             ->firstOrFail();
-        $data = $request->validated();
-        $balance = (float) $model->total - (float) $model->paid;
-        if ($balance <= 0) {
-            return response()->json(['message' => 'Esta orden ya está pagada; no tiene saldo pendiente.'], 422);
-        }
-        if ((float) $data['monto'] > $balance) {
-            return response()->json(['message' => 'El monto no puede superar el saldo pendiente.'], 422);
-        }
-        if (! $data['esCompleto'] && (float) $data['monto'] < 20) {
-            return response()->json(['message' => 'El abono mínimo es $20.'], 422);
+
+        try {
+            $model = $action->handle($model, $request->validated(), $request->file('comprobante'));
+        } catch (PaymentActionException $exception) {
+            return response()->json(['message' => $exception->getMessage()], 422);
         }
 
-        $reference = filled($data['referencia'] ?? null) ? (string) $data['referencia'] : null;
-        // F-035: sin referencia (campo opcional) el hash no puede depender de
-        // ella o dos abonos iguales sin referencia chocarian con el indice
-        // unico de `idempotency_hash`.
-        $hashSeed = $reference !== null
-            ? $model->uuid.'|'.$reference.'|'.$data['monto']
-            : $model->uuid.'|sin-referencia|'.$data['monto'].'|'.Str::uuid();
-        if ($reference !== null && Payment::where('idempotency_hash', hash('sha256', $hashSeed))->exists()) {
-            return response()->json(['message' => 'Este pago ya fue reportado. Evita duplicados.'], 422);
-        }
-
-        $file = $request->file('comprobante');
-        $path = $file->store('comprobantes', 'local');
-        Payment::create([
-            'user_uuid' => request()->user()->uuid,
-            'paid_at' => now()->toDateString(),
-            'amount' => $data['monto'],
-            'currency' => 'USD',
-            'method_code' => $data['metodoId'],
-            'method_name' => $data['metodoNombre'],
-            'reference' => $reference,
-            'concept' => ($model->is_registration ? 'Inscripción - ' : 'Pedido tienda - ').($model->items[0]['nombre'] ?? 'pedido'),
-            'status' => 'PENDIENTE_VERIFICACION',
-            'receipt_path' => $path,
-            'receipt_name' => $file->getClientOriginalName(),
-            'order_uuid' => $model->uuid,
-            'idempotency_hash' => hash('sha256', $hashSeed),
-        ]);
-
-        return response()->json(['data' => (new OrderResource($model->refresh()))->resolve($request)]);
+        return response()->json(['data' => (new OrderResource($model))->resolve($request)]);
     }
 }

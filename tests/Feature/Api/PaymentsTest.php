@@ -2,6 +2,10 @@
 
 namespace Tests\Feature\Api;
 
+use App\Actions\Payments\ApprovePayment;
+use App\Actions\Payments\RejectPayment;
+use App\Models\AdminUser;
+use App\Models\Payment;
 use App\Models\User;
 use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -77,5 +81,36 @@ class PaymentsTest extends TestCase
 
         $this->post('/api/pagos', $payload)->assertCreated();
         $this->post('/api/pagos', $payload)->assertStatus(422);
+    }
+
+    public function test_rejected_report_can_be_sent_again_but_pending_or_approved_still_block(): void
+    {
+        // F-052 (A-1/A-7) en POST /pagos: un RECHAZADO no bloquea el re-reporte
+        // identico (sin violar el indice unico); pendiente y aprobado si.
+        Storage::fake('local');
+        $user = User::factory()->create();
+        $admin = AdminUser::factory()->create();
+        Sanctum::actingAs($user);
+        $payload = fn (string $monto = '20') => [
+            'metodoId' => 'met_zelle',
+            'monto' => $monto,
+            'fecha' => now()->format('Y-m-d'),
+            'referencia' => 'TX-RE',
+            'comprobante' => UploadedFile::fake()->image('receipt.jpg'),
+        ];
+
+        $this->post('/api/pagos', $payload())->assertCreated();
+        $this->post('/api/pagos', $payload('20.00'), ['Accept' => 'application/json'])
+            ->assertStatus(422)
+            ->assertExactJson(['message' => 'Este pago ya fue reportado. Evita duplicados.']);
+
+        app(RejectPayment::class)->handle(Payment::sole(), 'Comprobante ilegible', $admin);
+
+        $this->post('/api/pagos', $payload())->assertCreated();
+        $this->assertSame(2, Payment::count());
+
+        app(ApprovePayment::class)->handle(Payment::where('status', 'PENDIENTE_VERIFICACION')->sole(), $admin);
+        $this->post('/api/pagos', $payload(), ['Accept' => 'application/json'])->assertStatus(422);
+        $this->assertSame(2, Payment::count());
     }
 }

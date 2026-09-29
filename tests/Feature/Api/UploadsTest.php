@@ -90,8 +90,9 @@ class UploadsTest extends TestCase
             ->assertJsonPath('errors.foto.0', 'La foto no puede pesar más de 5 MB.');
     }
 
-    public function test_order_payment_accepts_webp_receipt_without_reference(): void
+    public function test_order_payment_accepts_webp_receipt(): void
     {
+        // F-049: la referencia es obligatoria (ya no hay caso "sin referencia").
         Storage::fake('local');
         $user = User::factory()->create();
         Sanctum::actingAs($user);
@@ -102,23 +103,13 @@ class UploadsTest extends TestCase
             'esCompleto' => false,
             'metodoId' => 'met_zelle',
             'metodoNombre' => 'Zelle',
-            'referencia' => '',
+            'referencia' => 'ZL-WEBP',
             'comprobante' => UploadedFile::fake()->image('comprobante.webp'),
         ], self::JSON)->assertOk();
 
-        // Un segundo abono identico sin referencia no choca con el hash unico.
-        $this->post("/api/ordenes/{$order->uuid}/enlazar-pago", [
-            'monto' => 20,
-            'esCompleto' => false,
-            'metodoId' => 'met_zelle',
-            'metodoNombre' => 'Zelle',
-            'comprobante' => UploadedFile::fake()->create('comprobante.pdf', 100, 'application/pdf'),
-        ], self::JSON)->assertOk();
-
-        $payments = $order->payments()->get();
-        $this->assertCount(2, $payments);
-        $this->assertNull($payments->first()->reference);
-        Storage::disk('local')->assertExists($payments->first()->receipt_path);
+        $payment = $order->payments()->sole();
+        $this->assertSame('ZL-WEBP', $payment->reference);
+        Storage::disk('local')->assertExists($payment->receipt_path);
     }
 
     public function test_order_payment_rejects_heic_and_text_receipts(): void
@@ -213,6 +204,24 @@ class UploadsTest extends TestCase
             ->assertJsonPath('data.0.comprobanteUrl', fn (string $url): bool => str_contains($url, '/comprobante'));
     }
 
+    public function test_onboarding_direct_method_requires_a_non_blank_reference(): void
+    {
+        // F-052 (A-3): antes solo el cliente exigia la referencia; "   " se
+        // guardaba como null y el admin no tenia con que conciliar.
+        Storage::fake('local');
+        [$user, $draftId] = $this->prepareOnboarding('DIRECTO', '   ');
+
+        $this->post("/api/onboarding/{$draftId}/complete", [
+            'comprobante' => UploadedFile::fake()->image('transferencia.png'),
+        ], self::JSON)
+            ->assertStatus(422)
+            ->assertJsonPath('errors.referencia.0', 'Ingresa el número de referencia del pago.');
+
+        $this->assertDatabaseHas('users', ['id' => $user->id, 'onboarding_status' => 'INCOMPLETO']);
+        $this->assertSame(0, Payment::count());
+        $this->assertSame([], Storage::disk('local')->allFiles());
+    }
+
     public function test_onboarding_coordinated_remote_method_does_not_require_receipt(): void
     {
         Storage::fake('local');
@@ -236,7 +245,7 @@ class UploadsTest extends TestCase
     }
 
     /** @return array{0: User, 1: string} */
-    private function prepareOnboarding(string $methodType): array
+    private function prepareOnboarding(string $methodType, string $reference = 'REF-ONB'): array
     {
         $plan = Plan::create([
             'name' => 'Plan de prueba', 'venue' => 'Sede', 'season' => 'Temporada',
@@ -270,7 +279,7 @@ class UploadsTest extends TestCase
                     ? ['pago' => [
                         'modalidad' => 'completo',
                         'metodo' => 'met_test',
-                        'referencia' => $methodType === 'DIRECTO' ? 'REF-ONB' : '',
+                        'referencia' => $methodType === 'DIRECTO' ? $reference : '',
                     ]]
                     : ['saved' => true],
             ])->assertOk();
