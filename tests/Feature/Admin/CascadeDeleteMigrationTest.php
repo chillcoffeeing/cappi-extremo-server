@@ -62,11 +62,14 @@ class CascadeDeleteMigrationTest extends TestCase
         return $snapshot;
     }
 
-    /** @return array<string, string> columna => on_delete (SQLite) */
+    /**
+     * @return array<string, string> columna => on_delete. Schema::getForeignKeys
+     * es portable: el ensayo de despliegue corre este test contra MySQL/MariaDB.
+     */
     private function onDeleteRules(string $table): array
     {
-        return collect(DB::select("PRAGMA foreign_key_list('{$table}')"))
-            ->mapWithKeys(fn (object $fk): array => [$fk->from => strtoupper($fk->on_delete)])
+        return collect(Schema::getForeignKeys($table))
+            ->mapWithKeys(fn (array $fk): array => [$fk['columns'][0] => strtoupper((string) $fk['on_delete'])])
             ->all();
     }
 

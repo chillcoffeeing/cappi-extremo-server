@@ -243,7 +243,10 @@ for c in $TYPE_CHANGES; do
 done
 
 LOST=""
+# Tablas que cambian solas (caché, sesiones, colas): no cuentan como datos perdidos.
+VOLATILE='^(cache|cache_locks|sessions|jobs|job_batches)$'
 while IFS='|' read -r t n; do
+  [[ "$t" =~ $VOLATILE ]] && continue
   a="$(grep -E "^$t\|" "$SNAP/after.rows" | cut -d'|' -f2)"
   [ -n "$a" ] && [ "$a" -lt "$n" ] && LOST+="$t: $n -> $a"$'\n'
 done < "$SNAP/before.rows"
@@ -269,8 +272,16 @@ if [ ! -s "$SNAP/routes.after" ]; then
   fail "la app nueva no lista rutas (route:list falló: ¿error al arrancar?)"
 else
   GONE_ROUTES="$(comm -23 "$SNAP/routes.before" "$SNAP/routes.after")"
+  # Quitadas a propósito (--allow-removed-route="GET api/x"): aviso, no error.
+  ALLOWED_GONE=""
+  if [ -n "${ALLOW_REMOVED_ROUTES:-}" ] && [ -n "$GONE_ROUTES" ]; then
+    ALLOWED_GONE="$(echo "$GONE_ROUTES" | grep -xF -f <(echo "$ALLOW_REMOVED_ROUTES" | tr ',' '\n') || true)"
+    GONE_ROUTES="$(echo "$GONE_ROUTES" | grep -vxF -f <(echo "$ALLOW_REMOVED_ROUTES" | tr ',' '\n') || true)"
+  fi
+  [ -n "$ALLOWED_GONE" ] && warn "rutas que desaparecen, permitidas a propósito: $(echo "$ALLOWED_GONE" | tr '\n' ';')"
   if [ -n "$GONE_ROUTES" ]; then fail "rutas del API que desaparecen (el portal publicado las puede estar usando):"; echo "$GONE_ROUTES" | sed 's/^/           /'
-  else pass "ninguna ruta api/* desaparece ($(wc -l < "$SNAP/routes.after") rutas)"; fi
+    info "si se quitaron a propósito y nadie las usa: --allow-removed-route=\"METODO uri\""
+  else pass "ninguna ruta api/* desaparece sin permiso ($(wc -l < "$SNAP/routes.after") rutas)"; fi
   NEW_ROUTES="$(comm -13 "$SNAP/routes.before" "$SNAP/routes.after")"
   [ -n "$NEW_ROUTES" ] && info "rutas nuevas: $(echo "$NEW_ROUTES" | tr '\n' ';')"
 fi
@@ -305,7 +316,8 @@ case "$TESTS" in
     else fail "el PHP del servidor no tiene pdo_sqlite: usa --tests=mysql"; fi ;;
   *)
     step "Tests contra MySQL (la base de ensayo; se vacía)"
-    if DB_CONNECTION=mysql DB_DATABASE="$DRY_DB" DB_HOST="$DB_HOST_PROD" DB_PORT="$DB_PORT_PROD" DB_URL= \
+    # Sin ADMIN_PANEL_DOMAIN: los tests esperan el panel en /admin, como en local.
+    if ADMIN_PANEL_DOMAIN= DB_CONNECTION=mysql DB_DATABASE="$DRY_DB" DB_HOST="$DB_HOST_PROD" DB_PORT="$DB_PORT_PROD" DB_URL= \
         DB_USERNAME="$DB_USER" DB_PASSWORD="$(envval "$APP/.env" DB_PASSWORD)" \
         artisan test --no-ansi > "$SNAP/tests.log" 2>&1; then
       pass "php artisan test: $(grep -E 'Tests:' "$SNAP/tests.log" | tail -1 | xargs)"

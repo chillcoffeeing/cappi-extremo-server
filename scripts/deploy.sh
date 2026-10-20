@@ -19,6 +19,7 @@
 #   --tests=mysql|sqlite|skip   tests del ensayo (por defecto mysql, contra la copia)
 #   --allow-destructive   aplica aunque el ensayo detecte tablas/columnas/filas perdidas
 #   --force-check         ensaya aunque no haya commits nuevos
+#   --allow-removed-route="GET api/x"   acepta que esa ruta desaparezca (repetible; solo si nadie la usa)
 #   --yes                 no pide confirmación
 #
 # Lee el .env de la raíz del monorepo (../.env; otro: DEPLOY_ENV_FILE=ruta):
@@ -36,7 +37,7 @@ set -euo pipefail
 SELF="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")"
 cd "$(dirname "$0")/.."
 
-MODE=check; SEEDS=""; TESTS=mysql; ALLOW_DESTRUCTIVE=0; FORCE_CHECK=0; YES=0; WITH_MIGRATIONS=0
+MODE=check; SEEDS=""; TESTS=mysql; ALLOW_DESTRUCTIVE=0; FORCE_CHECK=0; YES=0; WITH_MIGRATIONS=0; ALLOW_ROUTES=""
 for arg in "$@"; do
   case "$arg" in
     --check|--dry-run) MODE=check ;;
@@ -47,6 +48,7 @@ for arg in "$@"; do
     --seed=*) s="${arg#--seed=}"; SEEDS="${SEEDS:+$SEEDS,}$s" ;;
     --tests=mysql|--tests=sqlite|--tests=skip) TESTS="${arg#--tests=}" ;;
     --allow-destructive) ALLOW_DESTRUCTIVE=1 ;;
+    --allow-removed-route=*) r="${arg#--allow-removed-route=}"; ALLOW_ROUTES="${ALLOW_ROUTES:+$ALLOW_ROUTES,}$r" ;;
     --force-check) FORCE_CHECK=1 ;;
     --with-migrations) WITH_MIGRATIONS=1 ;;
     --yes) YES=1 ;;
@@ -130,7 +132,7 @@ upload_tools() {
 }
 
 run_check() {
-  remote "$REMOTE_ENV TESTS=$TESTS ALLOW_DESTRUCTIVE=$ALLOW_DESTRUCTIVE FORCE_CHECK=$FORCE_CHECK DRYRUN_DB=$(q "$DRYRUN_DB") bash ~/deploy/api/tools/check.sh"
+  remote "$REMOTE_ENV TESTS=$TESTS ALLOW_DESTRUCTIVE=$ALLOW_DESTRUCTIVE FORCE_CHECK=$FORCE_CHECK ALLOW_REMOVED_ROUTES=$(q "$ALLOW_ROUTES") DRYRUN_DB=$(q "$DRYRUN_DB") bash ~/deploy/api/tools/check.sh"
 }
 
 smoke_public() {
