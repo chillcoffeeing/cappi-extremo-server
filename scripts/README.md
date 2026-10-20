@@ -1,7 +1,7 @@
 # Despliegue del API (scripts/deploy.sh)
 
-Automatiza [../../docs/update-cpanel.md](../../docs/update-cpanel.md) (actualizar) y el Paso 2 de
-[../../docs/despliegue-cpanel.md](../../docs/despliegue-cpanel.md) (primer despliegue). Desde
+Automatiza el despliegue del API descrito en [../../docs/despliegue.md](../../docs/despliegue.md)
+(actualizar y primer despliegue). Desde
 PowerShell: `.\scripts\deploy.ps1 <opciones>` (usa Git Bash). Lee el `.env` de la raíz del
 monorepo (`../.env`), que no está en ningún repo.
 
@@ -72,7 +72,7 @@ necesita `--allow-destructive` en el `--check` y en el `--apply`.
 4. Comprueba `api/planes/activo` y el login del admin desde fuera.
 
 Guarda el commit anterior en `~/deploy/api/previous-commit` y el historial en `~/deploy/api/history.log`.
-Conserva los 7 últimos `.sql`. Agrega tú la fila al historial de `docs/update-cpanel.md`.
+Conserva los 7 últimos `.sql`. Agrega tú la fila al historial de `docs/despliegue.md`.
 
 ## Rollback
 
@@ -80,7 +80,7 @@ Conserva los 7 últimos `.sql`. Agrega tú la fila al historial de `docs/update-
   Con migraciones aditivas, el código viejo las ignora.
 - `--rollback --with-migrations`: además corre `migrate:rollback` de las migraciones que entraron
   (antes de volver el código; el ensayo ya probó esos `down()`).
-- Restaurar el `.sql` reemplaza **toda** la base: último recurso, a mano (docs/update-cpanel.md §5).
+- Restaurar el `.sql` reemplaza **toda** la base: último recurso, a mano (`docs/despliegue.md` → Revertir).
 
 ## Primer despliegue (`--init`)
 

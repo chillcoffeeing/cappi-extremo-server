@@ -35,6 +35,6 @@ step "Siguiente paso (a mano)"
 info "1. nano ~/${API_DIR#/}/.env  -> DB_DATABASE / DB_USERNAME / DB_PASSWORD reales (con prefijo), APP_DEBUG=false"
 info "2. scripts/deploy.sh --check --seed=PermissionSeeder --seed=PaymentMethodSeeder"
 info "3. scripts/deploy.sh --apply --seed=PermissionSeeder --seed=PaymentMethodSeeder"
-info "4. Crear el admin real con tinker (docs/despliegue-cpanel.md Paso 2) y editar los métodos de pago reales"
+info "4. Crear el admin real con tinker (docs/despliegue.md, primer despliegue) y editar los métodos de pago reales"
 summary
 [ "$FAILS" = 0 ]

@@ -1,5 +1,10 @@
 # Fases de implementación y QA
 
+> **Registro histórico** de cómo se construyó el panel (F-003..F-009). Cambios posteriores que
+> lo contradicen: F-012 quitó "Pagos por antigüedad", F-013 fusionó Pagos dentro de Órdenes,
+> F-014 pasó los recursos a solo lectura y quitó todas las exportaciones, F-054 agregó Eliminar.
+> El estado vigente de cada recurso está en `03-panel-y-recursos.md`.
+
 ## Fase 0: preparación
 
 - Confirmar versión compatible de Filament con Laravel 13 y PHP 8.3.
@@ -127,7 +132,7 @@ sí lo hacían. `PaymentConcurrencyTest` documenta honestamente que PHPUnit no p
 transacciones reales compitiendo (SQLite bloquea el archivo completo, no por fila) y en su lugar
 prueba lo que sí importa: que `ApprovePayment` relee el estado fresco dentro del `lockForUpdate()`
 en vez de confiar en el objeto que le pasó el llamador. "Backups y restauración" quedó como
-procedimiento documentado en `08-despliegue-runbook.md`, no automatizado — depende de un hosting
+procedimiento documentado en `docs/despliegue.md` (raíz); desde 2026-10-20 automatizado en `api/scripts/deploy.sh` — depende de un hosting
 que todavía no está provisionado. "Revisión de archivos y logs" no encontró gaps reales: los
 `.gitignore` anidados de Laravel ya protegen `storage/`, y no hay secretos en texto plano en los
 logs.

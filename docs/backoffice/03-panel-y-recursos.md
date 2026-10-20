@@ -90,6 +90,14 @@ re-autoriza cada registro con `delete()` (`authorizeIndividualRecords`): un plan
 inscripciones se omite. Días y avisos no tienen policy: su borrado (fila y masivo) lo puede hacer
 quien edita el plan.
 
+**Eliminar por fila (2026-10-20):** Planes, Productos, Métodos de pago, Borradores de onboarding,
+Días y Avisos tienen además un botón "Eliminar" en cada fila (y en el header de su página de
+edición) con un modal que explica qué se borra y qué se conserva — `AdminDeleteActions::plan()`,
+`product()`, `paymentMethod()`, `onboardingDraft()`, `planDay()`, `announcement()`. Visibilidad por
+la policy `delete` de cada modelo (`plans.manage`, `products.manage`, `payment_methods.manage`;
+días y avisos con `plans.manage`). Un plan con inscripciones muestra el botón deshabilitado con el
+motivo ("usa Cancelar o Finalizar"). Las acciones masivas siguen igual.
+
 ### `PaymentResource` — retirado como recurso independiente en F-013
 
 Existió como recurso de navegación propio entre F-007 y F-013. **F-013** lo fusionó dentro de

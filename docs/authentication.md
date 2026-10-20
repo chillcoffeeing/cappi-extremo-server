@@ -19,8 +19,11 @@ El frontend conserva el access token en memoria y nunca debe guardarlo en `local
 - `POST /api/auth/refresh`: recibe `refreshToken` y devuelve un par nuevo.
 - `POST /api/auth/logout`: requiere Bearer token y responde `204`.
 - `POST /api/auth/forgot-password`: respuesta neutra `204` para no revelar si existe el email.
+  Genera el token de reset (1 h), pero **no se envía**: no hay correo saliente todavía
+  (`docs/notificaciones/`, F-038). Hoy el reset solo funciona si el equipo hace llegar el enlace.
 - `POST /api/auth/reset-password`: consume token de recuperación (transacción con lock), guarda la contraseña hasheada, invalida los demás enlaces de reset y cierra todas las sesiones del usuario (F-056).
-- `POST /api/auth/verify-email`: consume token de verificación.
+- `POST /api/auth/verify-email`: consume un token de verificación. Hoy ningún flujo emite esos
+  tokens (llegan con F-038), así que `email_verified_at` queda vacío y nada depende de él.
 
 ## Implementación Laravel
 

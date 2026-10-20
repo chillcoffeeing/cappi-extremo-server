@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Despliegue y actualización del API (Laravel + Filament) en cPanel por SSH.
-# Guía: scripts/README.md · Procedimiento manual equivalente: ../docs/update-cpanel.md
+# Guía: scripts/README.md · Procedimiento: ../docs/despliegue.md
 #
 #   bash scripts/deploy.sh                      = --check
 #   bash scripts/deploy.sh --check              ensayo EN EL SERVIDOR sin tocar producción: copia la
@@ -162,7 +162,7 @@ case "$MODE" in
     confirm DESPLEGAR
     remote "$REMOTE_ENV bash ~/deploy/api/tools/apply.sh"
     smoke_public
-    echo "Si algo falla: bash scripts/deploy.sh --rollback  (agrega una fila al historial de docs/update-cpanel.md)"
+    echo "Si algo falla: bash scripts/deploy.sh --rollback  (agrega una fila al historial de docs/despliegue.md)"
     ;;
   rollback)
     upload_tools

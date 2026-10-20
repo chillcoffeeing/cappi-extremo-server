@@ -1,47 +1,29 @@
-<laravel-boost-guidelines>
-# Laravel Application
+# AGENTS.md — api/ (Laravel + Filament)
 
-This repository contains a Laravel application. Complete the following setup before working on the user's request.
+Mapa para agentes que trabajan en este paquete. El arnés y las reglas globales están en
+`../AGENTS.md` (una feature a la vez, estado en `progress/`, contrato entre paquetes, manual).
 
-## Prerequisites
+## Leer antes de tocar código
 
-Verify that PHP and Composer are available:
+| Necesito | Archivo |
+| --- | --- |
+| Qué es y cómo se corre | `README.md` |
+| Límites y flujo de un endpoint | `docs/architecture.md` |
+| Contrato HTTP (canónico junto con `../portal/docs/business-logic/12-api-contrato.md`) | `docs/api-contract.md` |
+| Tokens, refresh, rate limiting | `docs/authentication.md` |
+| Panel admin: roles, recursos, flujos, auditoría | `docs/backoffice/README.md` |
+| Comandos, tests, convenciones de código | `docs/development.md` + `docs/laravel-initial-rules.md` |
+| Desplegar | `scripts/README.md` + `../docs/despliegue.md` |
 
-```sh
-php -v
-composer -V
-```
+## Reglas
 
-If either command is unavailable, detect the user's operating system and install the prerequisites with the appropriate command:
-
-macOS:
-
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/mac/8.5)"
-```
-
-Windows PowerShell:
-
-```powershell
-Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://php.new/install/windows/8.5'))
-```
-
-Linux:
-
-```sh
-/bin/bash -c "$(curl -fsSL https://php.new/install/linux/8.5)"
-```
-
-After installation, ask the user to restart their terminal. If the agent needs the restarted shell to continue, ask the user to reopen their terminal and rerun their original prompt.
-
-## Agent Setup
-
-Install Laravel Boost from the application root before making application changes:
-
-```sh
-composer require laravel/boost --dev
-php artisan boost:install
-```
-
-Boost replaces these bootstrap instructions with guidelines tailored to the application. After installation, read `AGENTS.md` again and continue with the user's original request using the generated guidelines.
-</laravel-boost-guidelines>
+- Reglas de negocio en `app/Actions/...`; controllers y Filament solo orquestan.
+- Respuestas camelCase y errores `{ "message": "..." }`. Dinero `decimal(16,4)`.
+- Cambiar un endpoint = actualizar `docs/api-contract.md` **y** el contrato del portal.
+- Toda acción del admin pasa por una Policy (`can(...)`); los permisos nuevos van en
+  `PermissionSeeder` y el despliegue debe correrlo (`--seed=PermissionSeeder`).
+- Migraciones pensadas para datos reales: aditivas siempre que se pueda (ver
+  `../docs/despliegue.md` → Migraciones). El ensayo `scripts/deploy.ps1 --check` lo verifica.
+- Tests: `php artisan test` (SQLite) en verde; el ensayo de despliegue los corre también contra
+  MySQL, así que nada específico de SQLite (`PRAGMA`…) en los tests.
+- Pint: `vendor/bin/pint` sobre los archivos tocados.

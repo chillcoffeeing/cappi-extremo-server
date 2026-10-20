@@ -8,7 +8,9 @@ Instalar Filament en la aplicación Laravel y crear un panel administrativo sepa
 /admin
 ```
 
-En producción se recomienda `admin.cappixtremo.com`. El API continuará usando Bearer tokens y el portal público no compartirá credenciales administrativas.
+En producción el panel vive en la raíz de `administrador.cappixtremo.com` (`ADMIN_PANEL_DOMAIN`;
+sin esa variable, en `/admin` sobre cualquier host). El API sigue usando Bearer tokens y el
+portal no comparte credenciales administrativas.
 
 ## Autenticación
 

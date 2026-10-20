@@ -126,5 +126,5 @@ todo lo demás se borra físicamente. Reemplaza la regla anterior ("soft delete 
   defecto de Filament) y solo los ve SUPER_ADMIN. Las órdenes y pagos sin representante se
   muestran como "Representante eliminado" con el snapshot, y hay filtro "Sin representante".
 - No se agrega log del borrado. El borrado es irreversible: el respaldo es el `mysqldump` previo
-  al despliegue (`docs/update-cpanel.md`).
+  al despliegue (`docs/despliegue.md`).
 - Planes: sin cambios, un plan con inscripciones sigue sin poder borrarse (`PlanPolicy::delete`).

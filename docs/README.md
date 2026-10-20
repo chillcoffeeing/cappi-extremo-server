@@ -1,36 +1,31 @@
-# Documentación del servidor Laravel
+# Documentación del API (Laravel + Filament)
 
-API backend del portal Familias Cappi Xtremo.
-
-## Fuente de verdad
-
-- Contrato funcional completo: [portal/docs/business-logic/12-api-contrato.md](../../portal/docs/business-logic/12-api-contrato.md)
-- Plan de implementación: [portal/docs/business-logic/11-plan-laravel.md](../../portal/docs/business-logic/11-plan-laravel.md)
-- Reglas de implementación: [laravel-initial-rules.md](../../laravel-initial-rules.md)
-
-Los documentos de esta carpeta contienen únicamente las decisiones y procedimientos que afectan al servidor. Si el contrato cambia, actualizar primero el documento canónico del portal y después reflejar el cambio aquí.
+API REST del portal de familias y panel administrativo de Cappi Xtremo, en la misma app.
+Qué hace el sistema en conjunto: [../../docs/producto.md](../../docs/producto.md).
 
 ## Índice
 
-- [Arquitectura](architecture.md): límites de la aplicación y estructura Laravel.
-- [Contrato API](api-contract.md): convenciones HTTP y mapa de endpoints.
-- [Autenticación](authentication.md): Sanctum token-only y refresh rotativo.
-- [Desarrollo y despliegue](development-and-deployment.md): comandos, pruebas y Namecheap.
-- [Backoffice](backoffice/README.md): construcción, seguridad, recursos Filament, operación financiera, contenido del plan y despliegue administrativo.
+| Documento | Contenido |
+| --- | --- |
+| [architecture.md](architecture.md) | Límites, flujo de un endpoint, dominios, reglas de plataforma |
+| [api-contract.md](api-contract.md) | Convenciones HTTP y mapa de endpoints (canónico junto con el del portal) |
+| [authentication.md](authentication.md) | Sanctum token-only, refresh rotativo, rate limiting |
+| [development.md](development.md) | Puesta en marcha local, tests, subida de archivos |
+| [laravel-initial-rules.md](laravel-initial-rules.md) | Marco de trabajo: receta de un endpoint, Actions, tests |
+| [backoffice/README.md](backoffice/README.md) | Panel Filament: roles, recursos, plan, finanzas, flujos, auditoría |
+| [../scripts/README.md](../scripts/README.md) | Despliegue a cPanel (ver también `../../docs/despliegue.md`) |
 
-## Estado actual
+## Contrato
 
-La aplicación está en Laravel 13. La infraestructura Sanctum, autenticación
-base y el primer endpoint de participantes ya están implementados; quedan los
-dominios y el refresh rotativo descritos abajo.
+El contrato funcional completo vive en
+[portal/docs/business-logic/12-api-contrato.md](../../portal/docs/business-logic/12-api-contrato.md)
+y su resumen del lado servidor en [api-contract.md](api-contract.md). Un cambio de endpoint
+actualiza los dos.
 
-## Primer slice implementado
+## Estado
 
-La infraestructura API ya está habilitada con Laravel Sanctum token-only. El
-endpoint `GET /api/participantes` está protegido por `auth:sanctum`, filtra por
-el usuario autenticado y cuenta con prueba Feature de acceso no autorizado y
-aislamiento entre usuarios.
-
-Auth base implementada: registro, login, refresh rotativo y logout. Quedan
-recuperación de contraseña y verificación de email antes de conectar todos los
-flujos de Auth del portal a producción.
+Todos los dominios del portal están implementados (auth, onboarding, participantes, plan
+activo, inscripciones, pagos, órdenes y tienda) y el panel admin cubre plan, representantes,
+participantes, inscripciones, órdenes/pagos, métodos de pago y productos. Lo que falta respecto
+del requerimiento original (correo, recordatorios, fecha límite de pago, cupos que bloqueen…)
+está listado en `../../docs/producto.md` → Pendiente.

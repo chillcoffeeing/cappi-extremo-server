@@ -365,7 +365,7 @@ Fuente única de formatos/límites: `app/Support/UploadRules.php` (espejo en el 
 - Errores `422` por campo en español, p. ej.
   `errors.comprobante: ["El comprobante debe ser PDF, JPG, PNG, WEBP, GIF o BMP."]`,
   `errors.foto: ["La foto no puede pesar más de 5 MB."]`, `*.uploaded` cuando PHP rechaza el
-  archivo por `upload_max_filesize` (ver `development-and-deployment.md`).
+  archivo por `upload_max_filesize` (ver `development.md`).
 - **Fotos por method spoofing:** PHP no parsea `multipart/form-data` en un `PUT` real, así que el
   portal envía `POST` multipart con `_method=PUT` a las mismas rutas `PUT` (Laravel lo enruta
   igual). Un `PUT` multipart directo llega sin archivo y responde `422 errors.foto`.

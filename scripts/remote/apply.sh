@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Aplica la actualización del API en producción. Solo corre si el último
 # ensayo (check.sh) pasó para EXACTAMENTE el commit que hoy está en
-# origin/$BRANCH. Procedimiento de docs/update-cpanel.md, automatizado:
+# origin/$BRANCH. Procedimiento de docs/despliegue.md, automatizado:
 # respaldo -> mantenimiento (si hay migraciones/dependencias/seeders) ->
 # pull -> composer -> migrate -> seeders -> cachés -> up.
 set -uo pipefail

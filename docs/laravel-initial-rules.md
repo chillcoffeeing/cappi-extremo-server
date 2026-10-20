@@ -1,7 +1,7 @@
 # Laravel API + React SPA — marco de trabajo
 
 Laravel vanilla + opiniones mínimas. Stack de referencia: \*\*Laravel 13 · React
-SPA (Vite) · API JSON + Sanctum · MySQL · hosting compartido (PHP; Node solo
+SPA (Vite) · API JSON + Sanctum · MySQL/MariaDB (SQLite en local) · hosting compartido (PHP; Node solo
 en build). No fijar majors EOL.
 
 ---
@@ -138,14 +138,12 @@ $request->user()->currentAccessToken()->delete();            // logout
 
 ## Frontend
 
-Laravel sirve layouts y JSON; el routing de pantallas vive en React.
+El frontend es una SPA aparte (`../portal`, repo `cappi-extremo-user`) que consume
+`https://api.cappixtremo.com/api` con Bearer. Laravel no sirve vistas del portal: solo JSON y el
+panel Filament.
 
-- Cliente HTTP compartido (`resources/js/lib/api.js`) con `baseURL: '/api'`.
-- Preferir rutas nombradas en `api.php` (fuente de verdad, útil para docs y
-  tooling). Evitar esparcir strings `/api/...` sueltos: centralizar en el cliente
-  o en un módulo de endpoints.
-- Opcional: [Wayfinder](https://laravel.com/docs/wayfinder) si querés URLs
-  tipadas desde las rutas nombradas. No es requisito de este marco.
+- El portal centraliza las URLs en `src/services/*` sobre `src/lib/api/client.ts`.
+- Las rutas de `api.php` llevan `->name()`; el contrato está en `api-contract.md`.
 
 ---
 
@@ -189,23 +187,12 @@ No es un gate de merge: es la forma más barata de no romper lo ya estabilizado.
 
 ## Deploy (Node solo en build)
 
-```
-máquina/CI:  npm run build  →  public/build/
-             subir: app/, routes/, config/, database/, resources/views,
-                    public/, vendor/, artisan, .env prod
-hosting:     docroot → public/
-```
+El API se despliega con git + `scripts/deploy.ps1` (ensayo contra una copia de la base,
+respaldo automático, `composer install --no-dev`, migraciones, cachés). Nada de Node en el
+servidor: el portal y la landing se compilan en local. Procedimiento: `../../docs/despliegue.md`.
 
-```bash
-npm run build
-# --- subir ---
-php artisan migrate --force
-php artisan optimize
-php artisan storage:link
-```
-
-Prod: `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY` real, `APP_URL` real.
-Escritura en `storage/` y `bootstrap/cache/`.
+Prod: `APP_ENV=production`, `APP_DEBUG=false`, `APP_KEY` real, `APP_URL` real,
+`ADMIN_PANEL_DOMAIN`. Escritura solo en `storage/` y `bootstrap/cache/`.
 
 ---
 

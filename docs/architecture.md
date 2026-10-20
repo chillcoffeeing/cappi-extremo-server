@@ -2,7 +2,9 @@
 
 ## Responsabilidad
 
-Laravel expone una API REST JSON para el portal React. El frontend conserva TanStack Router/Query y sustituye sus mocks por llamadas a los servicios HTTP sin cambiar los tipos públicos.
+Laravel expone una API REST JSON para el portal React (`../portal`, SPA aparte) y, en la misma
+app, el panel administrativo Filament (guard `admin`, ver `backoffice/`). Las dos superficies
+usan los mismos modelos y las mismas Actions.
 
 El servidor debe seguir las convenciones de Laravel. La única convención adicional es `Actions` para encapsular casos de uso.
 
@@ -34,27 +36,26 @@ Los controllers no contienen reglas de negocio. Una Action no recibe `Request`, 
 - Onboarding.
 - Participantes, contactos y fichas individuales.
 - Plan activo e inscripciones.
-- Pagos y órdenes de tienda.
-- Catálogo.
+- Pagos y órdenes (inscripción y tienda).
+- Catálogo de productos y métodos de pago.
+- Administración (Filament): plan y su contenido, expedientes, finanzas, borrado controlado
+  (`app/Actions/Admin`).
 
-La Galería del portal no pertenece al API por ahora: el sidebar abre un enlace
-externo de Google Drive y la URL concreta del plan queda pendiente de
-configuración. No crear un endpoint de galería hasta definir esa integración.
+La Galería del portal no pertenece al API: el sidebar abre un enlace externo de Google Drive.
+No hay correo saliente ni tareas programadas (`routes/console.php` no agenda nada).
 
-## Persistencia inicial
+## Persistencia
 
-Las tablas se crearán únicamente con migraciones. El dinero usa `decimal(16,4)`. Las relaciones principales pertenecen al usuario autenticado. Los seeders deben reproducir los mocks del portal para permitir una migración incremental mock -> API.
+Tablas solo vía migraciones. Dinero en `decimal(16,4)`. Identificadores públicos `uuid`
+(`HasPublicUuid`); las relaciones usan `*_uuid`. Los datos de cada representante se filtran por
+el usuario autenticado en cada consulta.
 
-La primera tabla de dominio es `participants`: guarda la ficha individual, el
-estado `data_completed` que controla el gate del wizard y los bloques JSON de
-salud, contactos de emergencia, encargado de retiro y seguro.
-No se persisten documentos subidos de participantes. Los comprobantes quedan
-reservados al dominio de pagos.
-
-El primer endpoint implementado es `GET /api/participantes`, protegido por
-Sanctum y aislado por `user_id`. Su respuesta se construye con
-`App\Http\Resources\ParticipantResource`; los controllers no exponen columnas
-internas directamente.
+- `participants` guarda la ficha (bloques JSON de salud, contactos de emergencia, encargado de
+  retiro y seguro) y `data_completed`, que controla el asistente del portal.
+- Los hijos de un representante se borran en cascada con él (F-053); órdenes y pagos quedan con
+  `user_uuid = NULL` y una copia en `representative_snapshot`.
+- Comprobantes en `storage/app/private`; fotos e imágenes en `storage/app/public`.
+- Auditoría con `spatie/laravel-activitylog` (`activity_log`) en planes, órdenes y pagos.
 
 ## Reglas de plataforma
 
