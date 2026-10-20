@@ -53,7 +53,7 @@ paso del wizard (cuenta, participantes, pago, confirmación...).
 ### `ParticipantResource` — implementado (F-006), luego endurecido (F-010/F-014/F-015)
 
 Mostrar datos básicos, ficha completa, representante, inscripción (tab "Inscripción", F-015) y
-bloques de salud/contactos/seguro formateados (no JSON crudo). Acciones: solicitar
+bloques de salud/contactos formateados (la pestaña de seguro médico se quitó en F-076) (no JSON crudo). Acciones: solicitar
 corrección y marcar revisión.
 Sin crear: las fichas nacen del wizard del portal. Eliminar: solo SUPER_ADMIN (`records.delete`,
 Action `DeleteParticipant`; F-053). **F-054:** botón "Eliminar" en la fila y en la ficha; el

@@ -10,7 +10,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 /**
- * Regresion: los tabs Salud/Contactos/Seguro mostraban el JSON crudo del
+ * Regresion: los tabs Salud/Contactos (antes tambien Seguro, quitado en F-076) mostraban el JSON crudo del
  * bloque en vez de los valores formateados.
  */
 class ParticipantHealthDisplayTest extends TestCase
@@ -36,10 +36,6 @@ class ParticipantHealthDisplayTest extends TestCase
                 'id' => 'er_001', 'nombre' => 'Jose Perez', 'documento' => '001-7654321-8',
                 'telefono' => '8095550103', 'relacion' => 'Padrino', 'esContactoEmergencia' => false,
             ],
-            'medical_insurance' => [
-                'aseguradora' => 'Seguros Universal', 'poliza' => 'POL-8899',
-                'telefonoEmergencias' => '8095550199', 'noTiene' => false,
-            ],
         ]);
 
         $response = $this->actingAs($admin, 'admin')
@@ -56,11 +52,10 @@ class ParticipantHealthDisplayTest extends TestCase
             ->assertSee('Polen')
             ->assertSee('Maria Perez')
             ->assertSee('Madre')
-            ->assertSee('Seguros Universal')
-            ->assertSee('POL-8899')
             ->assertSee('Jose Perez')
             ->assertSee('Tipo de sangre')
-            ->assertSee('Aseguradora')
-            ->assertSee('Encargado de retiro');
+            ->assertSee('Encargado de retiro')
+            // F-076: ya no hay pestaña de seguro médico.
+            ->assertDontSee('Aseguradora');
     }
 }

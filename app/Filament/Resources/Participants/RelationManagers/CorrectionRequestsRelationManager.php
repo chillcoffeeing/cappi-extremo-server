@@ -36,7 +36,6 @@ class CorrectionRequestsRelationManager extends RelationManager
             'datosBasicos' => 'Datos básicos',
             'salud' => 'Salud',
             'contactosEmergencia' => 'Contactos de emergencia',
-            'seguroMedico' => 'Seguro médico',
         ];
     }
 
@@ -49,7 +48,8 @@ class CorrectionRequestsRelationManager extends RelationManager
      */
     public static function sectionLabels(): array
     {
-        return [...static::sectionOptions(), 'documentos' => 'Documentos'];
+        // F-076: 'seguroMedico' tambien quedo solo como etiqueta historica.
+        return [...static::sectionOptions(), 'seguroMedico' => 'Seguro médico', 'documentos' => 'Documentos'];
     }
 
     /**

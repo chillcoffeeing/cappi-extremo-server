@@ -15,7 +15,7 @@ use Illuminate\Validation\ValidationException;
  *  - salud: todos opcionales/null.
  *  - contactos-emergencia: minimo 1 contacto; nombre/telefono/parentesco requeridos.
  *  - encargado-retiro: opcional (null o vacio = valido); si se llena, campos requeridos.
- *  - seguro-medico: todo opcional + bandera booleana `noTiene`.
+ *  ("seguro-medico" se elimino en F-076; ver SaveParticipantWizardStep)
  *
  * Los errores se lanzan con prefijo `data.*` para que el portal los mapee
  * directo al campo que falla (mismo shape que los errores nativos de Laravel).
@@ -27,7 +27,6 @@ class WizardStepValidator
         'salud',
         'contactos-emergencia',
         'encargado-retiro',
-        'seguro-medico',
     ];
 
     private const GENEROS = ['MASCULINO', 'FEMENINO', 'OTRO', 'PREFIERO_NO_DECIR'];
@@ -102,12 +101,6 @@ class WizardStepValidator
                     'encargadoRetiro.telefono' => ['required', 'string'],
                     'encargadoRetiro.relacion' => ['required', 'string', 'in:'.implode(',', self::RELACIONES)],
                 ] : []),
-            ],
-            'seguro-medico' => [
-                'aseguradora' => ['nullable', 'string'],
-                'poliza' => ['nullable', 'string'],
-                'telefonoEmergencias' => ['nullable', 'string'],
-                'noTiene' => ['nullable', 'boolean'],
             ],
             default => [],
         };

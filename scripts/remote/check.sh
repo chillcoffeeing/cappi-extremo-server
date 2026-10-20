@@ -197,6 +197,16 @@ snapshot() {  # $1 = prefijo de salida
     echo "$t|$(sql -e "SELECT COUNT(*) FROM \`$DRY_DB\`.\`$t\`")" >> "$SNAP/$1.rows"
   done
   cut -d'|' -f1 "$SNAP/$1.rows" > "$SNAP/$1.tables"
+  # Huella del CONTENIDO de cada columna (independiente del orden de las filas): si cambia una
+  # columna que la actualización no debería tocar, se ve en la comparación.
+  : > "$SNAP/$1.hash"
+  local t cols expr
+  for t in $(cut -d'|' -f1 "$SNAP/$1.rows"); do
+    cols="$(sql -e "SELECT COLUMN_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='$DRY_DB' AND TABLE_NAME='$t' ORDER BY ORDINAL_POSITION")"
+    [ -n "$cols" ] || continue
+    expr="$(for c in $cols; do printf "CONCAT('%s.%s|', MD5(COALESCE(GROUP_CONCAT(COALESCE(CAST(\`%s\` AS CHAR),'<NULL>') ORDER BY COALESCE(CAST(\`%s\` AS CHAR),'<NULL>') SEPARATOR '\\\\n'),''))) AS h_%s," "$t" "$c" "$c" "$c" "$c"; done)"
+    sql -e "SET SESSION group_concat_max_len = 1073741824; SELECT ${expr%,} FROM \`$DRY_DB\`.\`$t\`" | tr '\t' '\n' >> "$SNAP/$1.hash"
+  done
 }
 
 snapshot before
@@ -251,6 +261,18 @@ while IFS='|' read -r t n; do
   [ -n "$a" ] && [ "$a" -lt "$n" ] && LOST+="$t: $n -> $a"$'\n'
 done < "$SNAP/before.rows"
 [ -n "$LOST" ] && destructive "filas que se pierden:"$'\n'"$(echo "$LOST" | sed 's/^/             /')"
+
+# Columnas que siguen existiendo y cuyo contenido cambia (fuera de las tablas volátiles y
+# `migrations`). No bloquea: una migración puede transformar datos a propósito, pero hay que
+# leer la lista y confirmar que son solo las previstas.
+CONTENT_CHANGED="$(join -t'|' <(sort "$SNAP/before.hash") <(sort "$SNAP/after.hash") \
+  | awk -F'|' '$2 != $3 {print $1}' | grep -vE '^(migrations|cache|cache_locks|sessions|jobs|job_batches)\.' || true)"
+if [ -n "$CONTENT_CHANGED" ]; then
+  warn "columnas cuyo CONTENIDO cambia (confirma que son solo las previstas): $(echo $CONTENT_CHANGED)"
+else
+  pass "ninguna otra columna cambia de contenido"
+fi
+echo "$CONTENT_CHANGED" > "$WORK/last-check-content-changes"
 
 NEW_TABLES="$(comm -13 <(sort "$SNAP/before.tables") <(sort "$SNAP/after.tables"))"
 NEW_COLS="$(comm -13 <(cut -d'|' -f1 "$SNAP/before.cols" | sort) <(cut -d'|' -f1 "$SNAP/after.cols" | sort))"

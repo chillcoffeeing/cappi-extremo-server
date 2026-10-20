@@ -27,7 +27,9 @@ class ParticipantResource extends JsonResource
             ],
             'salud' => $this->health ?? [],
             'contactosEmergencia' => $this->emergency_contacts ?? [],
-            'seguroMedico' => $this->medical_insurance ?? [],
+            // F-076: transicion para pestanas con el portal anterior (lee
+            // `seguroMedico.*` sin guardas). Siempre vacio; quitar en la proxima limpieza.
+            'seguroMedico' => (object) [],
             'encargadoRetiro' => $this->pickup_contact,
             'solicitudesCorreccion' => $this->whenLoaded('correctionRequests', fn () => $this->correctionRequests
                 ->map(fn ($request): array => [

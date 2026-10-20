@@ -51,7 +51,7 @@ Tablas solo vía migraciones. Dinero en `decimal(16,4)`. Identificadores públic
 el usuario autenticado en cada consulta.
 
 - `participants` guarda la ficha (bloques JSON de salud, contactos de emergencia, encargado de
-  retiro y seguro) y `data_completed`, que controla el asistente del portal.
+  retiro; el seguro médico se eliminó en F-076) y `data_completed`, que controla el asistente del portal.
 - Los hijos de un representante se borran en cascada con él (F-053); órdenes y pagos quedan con
   `user_uuid = NULL` y una copia en `representative_snapshot`.
 - Comprobantes en `storage/app/private`; fotos e imágenes en `storage/app/public`.

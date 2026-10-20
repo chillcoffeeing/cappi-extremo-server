@@ -104,11 +104,6 @@ class ParticipantsIndexTest extends TestCase
                     'esContactoEmergencia' => true,
                 ],
             ],
-            'seguro-medico' => [
-                'aseguradora' => 'Seguro Demo',
-                'poliza' => 'POL-001',
-                'telefonoEmergencias' => '+58 412 000 0000',
-            ],
         ];
 
         foreach ($steps as $step => $data) {
@@ -126,7 +121,7 @@ class ParticipantsIndexTest extends TestCase
             ->assertJsonPath('data.salud.alergias', 'Polen')
             ->assertJsonPath('data.contactosEmergencia.0.nombre', 'Laura Martinez')
             ->assertJsonPath('data.encargadoRetiro.nombre', 'Laura Martinez')
-            ->assertJsonPath('data.seguroMedico.aseguradora', 'Seguro Demo');
+            ->assertJsonPath('data.seguroMedico', []);
     }
 
     public function test_participant_resource_includes_active_enrollment_summary(): void

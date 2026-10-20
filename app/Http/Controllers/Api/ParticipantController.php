@@ -41,7 +41,6 @@ class ParticipantController extends Controller
             'health' => [],
             'emergency_contacts' => [],
             'pickup_contact' => null,
-            'medical_insurance' => [],
             'wizard_steps' => [],
         ]);
 
@@ -69,7 +68,6 @@ class ParticipantController extends Controller
                     'weightKg' => 'weight_kg',
                     'emergencyContacts' => 'emergency_contacts',
                     'pickupContact' => 'pickup_contact',
-                    'medicalInsurance' => 'medical_insurance',
                     default => $key,
                 }
             ] = $value;

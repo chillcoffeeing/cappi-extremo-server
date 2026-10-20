@@ -16,6 +16,7 @@ class UpdateParticipantRequest extends FormRequest
      * foto solo cambia por `PUT /participantes/{id}/foto`. Un portal viejo
      * cacheado que todavia lo manda NO recibe 422: el campo no tiene regla,
      * asi que `validated()` lo descarta y el resto de la ficha se guarda.
+     * F-076: igual con `medicalInsurance` (la seccion de seguro ya no existe).
      *
      * @return array<string, mixed>
      */
@@ -31,7 +32,6 @@ class UpdateParticipantRequest extends FormRequest
             'health' => ['sometimes', 'array'],
             'emergencyContacts' => ['sometimes', 'array'],
             'pickupContact' => ['sometimes', 'nullable', 'array'],
-            'medicalInsurance' => ['sometimes', 'array'],
         ];
     }
 }

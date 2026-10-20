@@ -11,8 +11,6 @@ use App\Models\Participant;
  * - `emergency_contacts` es una lista: se REEMPLAZA completa (el merge por
  *   indice duplicaba contactos al borrar uno).
  * - `pickup_contact`: `null` lo quita; un objeto reemplaza al anterior.
- * - `medical_insurance` con `noTiene=true` se reemplaza (no conserva la
- *   aseguradora ni la poliza vieja); sin `noTiene` sigue el merge de objeto.
  * - `health` (objeto) conserva el merge profundo: las claves omitidas se
  *   mantienen.
  */
@@ -29,13 +27,6 @@ class UpdateParticipant
 
         if (array_key_exists('health', $data) && is_array($data['health'])) {
             $data['health'] = array_replace_recursive($participant->health ?? [], $data['health']);
-        }
-
-        if (array_key_exists('medical_insurance', $data) && is_array($data['medical_insurance'])) {
-            $insurance = $data['medical_insurance'];
-            $data['medical_insurance'] = filter_var($insurance['noTiene'] ?? false, FILTER_VALIDATE_BOOLEAN)
-                ? $insurance
-                : array_replace_recursive($participant->medical_insurance ?? [], $insurance);
         }
 
         // pickup_contact: null o un objeto completo; se guarda tal cual llega.

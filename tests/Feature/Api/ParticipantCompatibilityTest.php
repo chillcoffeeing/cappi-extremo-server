@@ -149,20 +149,23 @@ class ParticipantCompatibilityTest extends TestCase
             ->assertJsonPath('data.salud.tipoSangre', 'A+');
     }
 
-    public function test_no_insurance_replaces_previous_insurer(): void
+    /**
+     * F-076: una pestaña con el portal anterior todavia manda `medicalInsurance`.
+     * No es 422: se descarta y el resto se guarda. `seguroMedico` sale vacio.
+     */
+    public function test_old_portal_insurance_patch_is_ignored(): void
     {
-        [, $participant] = $this->familyWithParticipant([
-            'medical_insurance' => ['aseguradora' => 'Seguros X', 'poliza' => '123', 'noTiene' => false],
-        ]);
+        [, $participant] = $this->familyWithParticipant();
 
-        $this->patchJson("/api/participantes/{$participant->uuid}", ['medicalInsurance' => ['noTiene' => true]], self::JSON)
+        $this->patchJson("/api/participantes/{$participant->uuid}", [
+            'medicalInsurance' => ['aseguradora' => 'Seguros X', 'noTiene' => false],
+            'health' => ['alergias' => 'Mani'],
+        ], self::JSON)
             ->assertOk()
-            ->assertJsonPath('data.seguroMedico', ['noTiene' => true]);
+            ->assertJsonPath('data.salud.alergias', 'Mani')
+            ->assertJsonPath('data.seguroMedico', []);
 
-        // Sin noTiene sigue el merge de objeto (portal viejo que manda parcial).
-        $this->patchJson("/api/participantes/{$participant->uuid}", ['medicalInsurance' => ['aseguradora' => 'Y', 'noTiene' => false]], self::JSON)
-            ->assertOk()
-            ->assertJsonPath('data.seguroMedico.aseguradora', 'Y');
+        $this->assertArrayNotHasKey('medical_insurance', $participant->fresh()->getAttributes());
     }
 
     public function test_pickup_contact_null_removes_it_and_object_replaces_it(): void

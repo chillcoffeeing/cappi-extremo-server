@@ -31,8 +31,9 @@ Implementado y probado:
   (`GET /wizard`, `POST /wizard/step`, `POST /wizard/complete`).
 - `GET /participantes` y `GET /participantes/{id}` incluyen `solicitudesCorreccion`
   (backoffice F-010): lista de `{ id, seccion, mensaje, estado, resolucion, fecha }` creada desde
-  `/admin/participants/{id}`. `seccion` usa las mismas 5 claves que `SectionKey` en el portal
-  (`datosBasicos`, `salud`, `contactosEmergencia`, `seguroMedico`, `documentos`).
+  `/admin/participants/{id}`. `seccion` usa las claves de `SectionKey` en el portal
+  (`datosBasicos`, `salud`, `contactosEmergencia`, `documentos`); las viejas pueden traer
+  `seguroMedico` (F-076: sección eliminada, las pendientes se descartaron).
   Ver shape completo en `portal/docs/business-logic/12-api-contrato.md`. F-061: el admin ya no
   ofrece `documentos` al crear (las viejas se siguen viendo); guardar una sección no resuelve la
   solicitud, la resuelve un admin.
@@ -43,7 +44,8 @@ Implementado y probado:
   - `emergencyContacts` **reemplaza la lista completa** (antes el merge por índice duplicaba al
     borrar, fe-A-5).
   - `pickupContact: null` quita el encargado; un objeto reemplaza al anterior (fe-A-17).
-  - `medicalInsurance` con `noTiene: true` reemplaza; si no, merge de objeto.
+  - `medicalInsurance` se **ignora** (F-076: el seguro médico se eliminó; sin 422 para un portal viejo).
+  - La respuesta mantiene `seguroMedico: {}` vacío por compatibilidad (quitar en la próxima limpieza).
   - `health` mantiene el merge profundo de objeto.
   - **`photoUrl` se ignora** (fe-A-4 / api-A-7): ya no tiene regla, `validated()` lo descarta y
     el resto del PATCH se guarda. Compatibilidad: un portal viejo cacheado que lo manda no recibe
@@ -330,7 +332,7 @@ El body es `{ "stepId": "…", "data": { … } }`. El backend valida el contenid
 | `salud`                | Todos opcionales/null: `tipoSangre`, `alergias`, `condicionesMedicas`, `medicamentos`, `discapacidades`, `infoAdicional` (string) y `requiereAcompanante` (boolean). NADA requerido.                             |
 | `contactos-emergencia` | `contactosEmergencia` requerido array `min:1`; `contactosEmergencia.*.nombre` / `*.telefono` / `*.parentesco` requeridos; `parentesco` `in:Madre,Padre,Tutor,Abuelo/a,Hermano/a,Otro,Padrino,Tío,Participante`   |
 | `encargado-retiro`     | `encargadoRetiro` opcional (`null` o vacío = válido; se normaliza a `null`). Si se llena, `encargadoRetiro.nombre`/`telefono`/`relacion` requeridos y `relacion` con la misma lista `in:`. `documento` opcional. |
-| `seguro-medico`        | Todo opcional/null: `aseguradora`, `poliza`, `telefonoEmergencias` (string) y `noTiene` (boolean, `true` ⇒ sin seguro). NADA requerido.                                                                          |
+| `seguro-medico`        | **Eliminado (F-076).** Se acepta con `200` y no se guarda nada (compatibilidad con un portal anterior). `POST /wizard/complete` exige solo los 4 pasos de arriba.                                                 |
 
 Errores de validación → `422`:
 

@@ -23,7 +23,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'health',
     'emergency_contacts',
     'pickup_contact',
-    'medical_insurance',
     'wizard_steps',
     'reviewed_at',
     'reviewed_by',
@@ -40,7 +39,6 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'health',
     'emergency_contacts',
     'pickup_contact',
-    'medical_insurance',
 ])]
 class Participant extends Model
 {
@@ -55,7 +53,6 @@ class Participant extends Model
             'health' => 'array',
             'emergency_contacts' => 'array',
             'pickup_contact' => 'array',
-            'medical_insurance' => 'array',
             'wizard_steps' => 'array',
             'reviewed_at' => 'datetime',
         ];

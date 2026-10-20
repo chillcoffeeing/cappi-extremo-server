@@ -5,6 +5,7 @@ namespace Tests\Feature\Api;
 use App\Models\Participant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -21,7 +22,7 @@ class ParticipantsWizardStepValidationTest extends TestCase
         return $user;
     }
 
-    private function postStep(string $participantId, string $stepId, array $data): \Illuminate\Testing\TestResponse
+    private function postStep(string $participantId, string $stepId, array $data): TestResponse
     {
         return $this->postJson("/api/participantes/{$participantId}/wizard/step", [
             'stepId' => $stepId,
@@ -203,18 +204,35 @@ class ParticipantsWizardStepValidationTest extends TestCase
         ])->assertOk();
     }
 
-    public function test_seguro_medico_no_tiene_and_empty_are_accepted(): void
+    /**
+     * F-076: el paso "seguro-medico" ya no existe. Un portal anterior que lo
+     * manda recibe 200 sin que se guarde nada, y la ficha se completa con 4 pasos.
+     */
+    public function test_removed_insurance_step_is_a_no_op_and_four_steps_complete_the_wizard(): void
     {
         $user = $this->actingUser();
         $participant = Participant::factory()->create(['user_uuid' => $user->uuid]);
 
-        $this->postStep($participant->uuid, 'seguro-medico', ['noTiene' => true])->assertOk();
+        $this->postStep($participant->uuid, 'seguro-medico', ['aseguradora' => 'Seguros Universal'])
+            ->assertOk()
+            ->assertJsonPath('completedSteps', []);
+        $this->assertSame([], $participant->fresh()->wizard_steps ?? []);
 
-        $this->postStep($participant->uuid, 'seguro-medico', [
-            'aseguradora' => 'Seguros Universal',
-            'poliza' => 'POL-8899',
-            'telefonoEmergencias' => '8095550199',
-            'noTiene' => false,
-        ])->assertOk();
+        $steps = [
+            'datos-basicos' => [
+                'nombre' => 'Ana Perez', 'fechaNacimiento' => '2016-05-10', 'genero' => 'FEMENINO',
+                'cedula' => 'V-1', 'tallaCamisa' => 'M', 'pesoKg' => 30,
+            ],
+            'salud' => [],
+            'contactos-emergencia' => ['contactosEmergencia' => [['nombre' => 'Laura', 'telefono' => '0412', 'parentesco' => 'Madre']]],
+            'encargado-retiro' => ['encargadoRetiro' => null],
+        ];
+        foreach ($steps as $stepId => $data) {
+            $this->postStep($participant->uuid, $stepId, $data)->assertOk();
+        }
+
+        $this->postJson("/api/participantes/{$participant->uuid}/wizard/complete")
+            ->assertOk()
+            ->assertJsonPath('data.datosCompletos', true);
     }
 }

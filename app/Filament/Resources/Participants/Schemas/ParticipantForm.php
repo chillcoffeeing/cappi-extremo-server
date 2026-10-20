@@ -89,14 +89,6 @@ class ParticipantForm
                                 IconEntry::make('pickup_contact.esContactoEmergencia')->label('Es contacto de emergencia')->boolean(),
                             ])
                             ->columns(2),
-                        Tab::make('Seguro médico')
-                            ->schema([
-                                IconEntry::make('medical_insurance.noTiene')->label('No tiene seguro')->boolean(),
-                                TextEntry::make('medical_insurance.aseguradora')->label('Aseguradora')->placeholder('—'),
-                                TextEntry::make('medical_insurance.poliza')->label('Póliza')->placeholder('—'),
-                                TextEntry::make('medical_insurance.telefonoEmergencias')->label('Teléfono de emergencias')->placeholder('—'),
-                            ])
-                            ->columns(2),
                         Tab::make('Inscripción')
                             ->schema([
                                 TextEntry::make('enrollment_heading')
