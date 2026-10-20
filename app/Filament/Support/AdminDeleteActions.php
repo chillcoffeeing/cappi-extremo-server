@@ -2,15 +2,19 @@
 
 namespace App\Filament\Support;
 
+use App\Actions\Admin\AdminUsers\DeleteAdminUser;
 use App\Actions\Admin\DeleteEnrollment;
 use App\Actions\Admin\DeleteParticipant;
 use App\Actions\Admin\DeleteRepresentative;
+use App\Exceptions\AdminUserActionException;
+use App\Filament\Resources\AdminUsers\AdminUserResource;
 use App\Filament\Resources\Enrollments\EnrollmentResource;
 use App\Filament\Resources\Participants\ParticipantResource;
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
 use App\Filament\Resources\Plans\PlanResource;
 use App\Filament\Resources\Products\ProductResource;
 use App\Filament\Resources\Users\UserResource;
+use App\Models\AdminUser;
 use App\Models\Enrollment;
 use App\Models\OnboardingDraft;
 use App\Models\Participant;
@@ -280,6 +284,54 @@ class AdminDeleteActions
                 $record->delete();
 
                 Notification::make()->title('Aviso eliminado')->success()->send();
+            });
+    }
+
+    /**
+     * F-055 — cuenta admin (solo SUPER_ADMIN, AdminUserPolicy::delete; nunca la
+     * propia). Se escribe el email para confirmar, como con representantes.
+     * DeleteAdminUser impide borrar el ultimo SUPER_ADMIN activo.
+     */
+    public static function adminUser(bool $redirectToIndex = false): Action
+    {
+        return static::base()
+            ->visible(fn (AdminUser $record): bool => static::can($record))
+            ->modalHeading(fn (AdminUser $record): string => "Eliminar usuario admin: {$record->email}")
+            ->modalDescription(static::html([
+                'La cuenta deja de existir y no puede volver a entrar al panel. Si tiene una sesión abierta, se cierra.',
+                'Lo que hizo se conserva: pagos que revisó, órdenes que canceló, avisos que publicó y su historial en la auditoría (quedan sin autor).',
+                'Si solo quieres quitarle el acceso por un tiempo, usa <strong>Desactivar</strong>.',
+                static::irreversible(),
+            ]))
+            ->schema(fn (AdminUser $record): array => [
+                TextInput::make('confirmation')
+                    ->label('Para confirmar, escribe el email de la cuenta: '.$record->email)
+                    ->required()
+                    ->autocomplete(false)
+                    ->rules([
+                        fn (): Closure => function (string $attribute, mixed $value, Closure $fail) use ($record): void {
+                            if (mb_strtolower(trim((string) $value)) !== mb_strtolower($record->email)) {
+                                $fail('El texto no coincide con el email de la cuenta.');
+                            }
+                        },
+                    ]),
+            ])
+            ->action(function (AdminUser $record, Action $action) use ($redirectToIndex): void {
+                abort_unless(static::can($record), 403);
+
+                try {
+                    app(DeleteAdminUser::class)->handle(Auth::guard('admin')->user(), $record);
+                } catch (AdminUserActionException $exception) {
+                    Notification::make()->title($exception->getMessage())->danger()->send();
+
+                    return;
+                }
+
+                Notification::make()->title('Usuario admin eliminado')->success()->send();
+
+                if ($redirectToIndex) {
+                    $action->redirect(AdminUserResource::getUrl('index'));
+                }
             });
     }
 

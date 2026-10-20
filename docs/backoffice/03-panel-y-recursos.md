@@ -165,3 +165,18 @@ info/docs de Filament (`FilamentInfoWidget`).
 No implementados (fuera de la lista original, nunca se construyeron): "Onboardings incompletos" y
 "Inscripciones recientes" como widgets propios (cubiertos parcialmente por los stats de
 `KpiOverview`), "Actividades del día actual" (redundante con el detalle de días del plan activo).
+
+### `AdminUserResource` — implementado (F-055)
+
+Cuentas del panel (`/admin/admin-users`), solo con `admin_users.manage` (SUPER_ADMIN;
+`AdminUserPolicy`). Lista con rol, activa y último acceso (subconsulta a `activity_log`,
+`admin.auth`/`login`); alta con un único rol y contraseña (mín. 10, letras y números); edición de
+nombre, email, rol y activa; acciones "Desactivar/Activar", "Cambiar contraseña" y "Eliminar"
+(`AdminDeleteActions::adminUser()`, confirmando con el email). Las reglas viven en
+`App\Actions\Admin\AdminUsers` (`CreateAdminUser`, `UpdateAdminUser`, `ChangeAdminPassword`,
+`DeleteAdminUser`, `AdminUserRules`) con la fila bloqueada: nadie se desactiva, borra ni cambia
+el rol a sí mismo, y siempre queda un SUPER_ADMIN activo (`AdminUserActionException`).
+Desactivar corta la sesión (`EnsureAdminIsActive`); cambiar la contraseña cierra las demás
+sesiones (`AuthenticateSession`). Todo se audita en `activity_log` (`admin.users`) sin la
+contraseña. Borrar conserva lo que la cuenta hizo (FK `SET NULL`).
+

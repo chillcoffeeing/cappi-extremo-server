@@ -35,6 +35,5 @@ Despliegue, respaldos y restauración: [../../../docs/despliegue.md](../../../do
 Implementado: roles y permisos (5 roles, Policies, auditoría), plan activo con días, actividades,
 avisos y ciclo de vida, expedientes de representantes, onboarding, participantes (solo lectura +
 solicitudes de corrección), inscripciones, órdenes con pagos (aprobar, rechazar, comprobantes),
-métodos de pago, productos, dashboard y borrado controlado con doble confirmación. El detalle
-vigente de cada recurso está en `03-panel-y-recursos.md`. Pendiente: gestión de usuarios admin
-desde el panel (F-055), reportes/exportaciones, vista previa del plan.
+métodos de pago, productos, dashboard, gestión de usuarios admin (F-055) y borrado controlado con doble confirmación. El detalle
+vigente de cada recurso está en `03-panel-y-recursos.md`. Pendiente: reportes/exportaciones, vista previa del plan.
