@@ -17,6 +17,17 @@ El servidor despliega **`origin/main`**, no tu copia local: primero `git push`.
 
 Luego, el portal: `cd ..\portal; .\scripts\deploy.ps1`. **API primero, portal inmediatamente después.**
 
+## Respaldos (automáticos)
+
+`--apply` y `--rollback` respaldan **antes de tocar nada**, y sin respaldo no siguen:
+
+- base: `~/backups/cappi-<fecha>.sql` (mysqldump);
+- archivos: `~/backups/api-files-<fecha>.tgz` (código con `.git`, `.env`, `storage/` con fotos y comprobantes; sin `vendor/`).
+
+Se conservan los 7 últimos de cada uno. `--backup` hace lo mismo bajo demanda. Portal y landing
+respaldan la carpeta publicada completa en `~/deploy/<pieza>/backups/` en cada publicación
+(también `--backup`).
+
 ## Qué hace el ensayo (`--check`)
 
 Todo pasa en el servidor, en `~/deploy/api/`, contra **copias**:
@@ -37,6 +48,14 @@ Todo pasa en el servidor, en `~/deploy/api/`, contra **copias**:
 Al terminar borra la base de ensayo y la copia del código. El log queda en
 `~/deploy/api/logs/check-<fecha>.log`. Con mail en `log` y colas en `sync`, el ensayo no envía
 correos.
+
+No cuentan como pérdida las tablas volátiles (`cache`, `cache_locks`, `sessions`, `jobs`,
+`job_batches`) ni los cambios de solo permisos en git (`chmod -R 775 storage`). Los tests corren
+sin `ADMIN_PANEL_DOMAIN` (esperan el panel en `/admin`, como en local). En este hosting composer
+no está en el PATH de SSH: se usa `~/api.cappixtremo.com/composer.phar`.
+
+Una ruta `api/*` quitada a propósito (y que el portal no usa) se acepta con
+`--allow-removed-route="GET api/x"` en el `--check` y en el `--apply`.
 
 Una actualización destructiva a propósito (por ejemplo, quitar una columna que ya no se usa)
 necesita `--allow-destructive` en el `--check` y en el `--apply`.
