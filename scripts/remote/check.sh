@@ -17,6 +17,7 @@
 #   DRYRUN_DB (base ya creada a mano en cPanel si uapi no está disponible),
 #   FORCE_CHECK=1 (ensayar aunque no haya commits nuevos).
 set -uo pipefail
+export LC_ALL=C   # sort/comm/join con el mismo orden binario
 MODE=check
 source "$(dirname "$0")/lib.sh"
 
@@ -265,7 +266,7 @@ done < "$SNAP/before.rows"
 # Columnas que siguen existiendo y cuyo contenido cambia (fuera de las tablas volátiles y
 # `migrations`). No bloquea: una migración puede transformar datos a propósito, pero hay que
 # leer la lista y confirmar que son solo las previstas.
-CONTENT_CHANGED="$(join -t'|' <(sort "$SNAP/before.hash") <(sort "$SNAP/after.hash") \
+CONTENT_CHANGED="$(LC_ALL=C join -t'|' <(LC_ALL=C sort -t"|" -k1,1 "$SNAP/before.hash") <(LC_ALL=C sort -t"|" -k1,1 "$SNAP/after.hash") \
   | awk -F'|' '$2 != $3 {print $1}' | grep -vE '^(migrations|cache|cache_locks|sessions|jobs|job_batches)\.' || true)"
 if [ -n "$CONTENT_CHANGED" ]; then
   warn "columnas cuyo CONTENIDO cambia (confirma que son solo las previstas): $(echo $CONTENT_CHANGED)"
