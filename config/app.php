@@ -138,4 +138,17 @@ return [
 
     'admin_panel_domain' => env('ADMIN_PANEL_DOMAIN'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Manual (F-075)
+    |--------------------------------------------------------------------------
+    |
+    | Carpeta con el build estatico del manual (`../manual`, Astro con base
+    | /manual). Se sirve en /manual del dominio del panel, solo a cuentas
+    | admin. Fuera de git; la sube manual/scripts/deploy.sh.
+    |
+    */
+
+    'manual_path' => env('MANUAL_PATH', storage_path('app/manual')),
+
 ];

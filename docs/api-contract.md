@@ -121,7 +121,7 @@ y el replay del token anterior devuelve `401`.
 - `GET /representante`, `PUT /representante/contacto`, `PUT /representante/identificacion`,
   `PUT /representante/encargado` y `PUT /representante/foto` (no hay `PUT /representante`)
 - `GET /participantes`, `GET|PATCH /participantes/{id}` y `PUT /participantes/{id}/foto`
-- `POST /participantes` — alta de hijo ("Agregar participante"): body
+- `POST /participantes` — alta de hijo (botón "Agregar otro" → modal "Agregar hijo"): body
   `{ name, birthDate (Y-m-d), gender }` (claves en inglés), responde `200 { data: Participante }`.
   Si el representante ya completó el onboarding y hay plan operativo crea la inscripción y una
   orden de inscripción nueva y recalcula el descuento por hermanos (`RegisterParticipantInscription`;
@@ -489,8 +489,8 @@ con `{ message, errors }` en español; ningún shape cambia.
       "COMPLETADO"`), no reabre el draft ni crea participantes, inscripciones, órdenes ni pagos.
       Cubre el doble clic y el reintento tras un error de red.
     - Sobre **cualquier otro draft** (existente o nuevo) → `422 errors.onboarding: ["Tu
-      inscripción ya fue completada. Para agregar otro participante usa «Agregar participante»
-      en el portal."]`.
+      inscripción ya fue completada. Para agregar otro participante usa «Agregar otro» en «Mis participantes»
+      del portal."]`.
     - `GET /onboarding/{id}` y los `POST /onboarding/{id}/step|complete` con un `draftId` que no existe **ya no crea** un draft: mismo
       `422 errors.onboarding`. Los drafts existentes se siguen pudiendo leer (`GET` → `200`).
   - Los hijos nuevos de una familia ya inscrita van por `POST /participantes`

@@ -180,3 +180,12 @@ Desactivar corta la sesión (`EnsureAdminIsActive`); cambiar la contraseña cier
 sesiones (`AuthenticateSession`). Todo se audita en `activity_log` (`admin.users`) sin la
 contraseña. Borrar conserva lo que la cuenta hizo (FK `SET NULL`).
 
+### Manual (`/manual`) — implementado (F-075)
+
+No es un recurso Filament: `App\Http\Controllers\ManualController` (ruta `manual` en
+`routes/web.php`, en el dominio del panel) sirve el build estático de `../manual` desde
+`config('app.manual_path')` (`storage/app/manual`, fuera de git). Exige sesión del guard `admin`
+con `canAccessPanel` (activa + `admin.access`): sin sesión redirige al login del panel guardando la
+URL; sin build, 404. Solo tipos conocidos (html, css, js, imágenes, fuentes), nunca fuera de la
+carpeta, `X-Robots-Tag: noindex`. Item "Manual" en el menú del panel (nueva pestaña).
+
