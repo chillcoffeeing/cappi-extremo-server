@@ -3,7 +3,9 @@
 namespace Tests\Feature\Api;
 
 use App\Actions\Inscriptions\CalculateInscriptionTotal;
+use App\Actions\Inscriptions\RegisterParticipantInscription;
 use App\Actions\Onboarding\CompleteOnboarding;
+use App\Models\Participant;
 use App\Models\Plan;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -153,12 +155,9 @@ class SiblingDiscountTest extends TestCase
         $this->assertCount(1, $inscriptionOrders);
         $this->assertSame(150.0, (float) $inscriptionOrders[0]->total);
 
-        Sanctum::actingAs($user);
-        $this->postJson('/api/participantes', [
-            'name' => 'Luis',
-            'birthDate' => '2016-02-02',
-            'gender' => 'MASCULINO',
-        ])->assertOk();
+        // F-077: el portal ya no da de alta hijos (POST /participantes se quitó);
+        // la Action sigue viva para el onboarding reabierto (CompleteOnboarding).
+        $this->registerNewParticipant($user, 'Luis', '2016-02-02', 'MASCULINO');
 
         $updatedOrders = $user->orders()->where('is_registration', true)->orderBy('id')->get();
         $this->assertCount(2, $updatedOrders);
@@ -178,13 +177,9 @@ class SiblingDiscountTest extends TestCase
             ['nombre' => 'Ana', 'nacimiento' => '2018-01-01'],
         ]);
 
-        Sanctum::actingAs($user);
-        $this->postJson('/api/participantes', [
-            'name' => 'Luis',
-            'birthDate' => '2016-02-02',
-            'gender' => 'MASCULINO',
-        ])->assertOk();
+        $this->registerNewParticipant($user, 'Luis', '2016-02-02', 'MASCULINO');
 
+        Sanctum::actingAs($user);
         $this->getJson('/api/pagos/balance')
             ->assertOk()
             ->assertJsonPath('totalPagar', 260)
@@ -264,5 +259,16 @@ class SiblingDiscountTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('message', 'El campo ítems es obligatorio.')
             ->assertJsonPath('errors.items.0', 'El campo ítems es obligatorio.');
+    }
+
+    /** Alta de un hijo despues del onboarding, como la hace CompleteOnboarding (F-077). */
+    private function registerNewParticipant(User $user, string $name, string $birthDate, string $gender): Participant
+    {
+        $participant = Participant::factory()->create([
+            'user_uuid' => $user->uuid, 'name' => $name, 'birth_date' => $birthDate, 'gender' => $gender, 'data_completed' => false,
+        ]);
+        app(RegisterParticipantInscription::class)->handle($participant);
+
+        return $participant;
     }
 }

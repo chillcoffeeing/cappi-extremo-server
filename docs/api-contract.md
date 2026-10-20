@@ -123,11 +123,9 @@ y el replay del token anterior devuelve `401`.
 - `GET /representante`, `PUT /representante/contacto`, `PUT /representante/identificacion`,
   `PUT /representante/encargado` y `PUT /representante/foto` (no hay `PUT /representante`)
 - `GET /participantes`, `GET|PATCH /participantes/{id}` y `PUT /participantes/{id}/foto`
-- `POST /participantes` — alta de hijo (botón "Agregar otro" → modal "Agregar hijo"): body
-  `{ name, birthDate (Y-m-d), gender }` (claves en inglés), responde `200 { data: Participante }`.
-  Si el representante ya completó el onboarding y hay plan operativo crea la inscripción y una
-  orden de inscripción nueva y recalcula el descuento por hermanos (`RegisterParticipantInscription`;
-  F-063 fe-C-3 lo documenta, existía desde antes)
+- `POST /participantes` — **eliminado en F-077** (`405`): el portal no da de alta hijos; todos se
+  cargan en el onboarding. `RegisterParticipantInscription` sigue en uso desde
+  `CompleteOnboarding` (onboarding reabierto por un admin)
 - `GET /inscripciones/{participante}/detalle`
 - `GET /pagos/balance`
 - `GET|POST /pagos`
@@ -491,12 +489,13 @@ con `{ message, errors }` en español; ningún shape cambia.
       "COMPLETADO"`), no reabre el draft ni crea participantes, inscripciones, órdenes ni pagos.
       Cubre el doble clic y el reintento tras un error de red.
     - Sobre **cualquier otro draft** (existente o nuevo) → `422 errors.onboarding: ["Tu
-      inscripción ya fue completada. Para agregar otro participante usa «Agregar otro» en «Mis participantes»
-      del portal."]`.
+      inscripción ya fue completada. Si te faltó inscribir a algún hijo, escríbele al equipo de
+      Cappi Xtremo."]` (F-077).
     - `GET /onboarding/{id}` y los `POST /onboarding/{id}/step|complete` con un `draftId` que no existe **ya no crea** un draft: mismo
       `422 errors.onboarding`. Los drafts existentes se siguen pudiendo leer (`GET` → `200`).
-  - Los hijos nuevos de una familia ya inscrita van por `POST /participantes`
-    (`RegisterParticipantInscription`: orden nueva + recálculo del descuento hermanos).
+  - Sin alta de hijos desde el portal (F-077). Un hijo nuevo solo entra si un admin reabre el
+    onboarding: `CompleteOnboarding` lo pasa por `RegisterParticipantInscription` (orden nueva +
+    recálculo del descuento hermanos).
 - **Locks (api-B-1/B-2).** `CompleteOnboarding` bloquea el `User` y luego el draft
   (`lockForUpdate`) y revisa los estados ya bloqueado: dos `complete` simultáneos quedan en
   serie y el segundo es idempotente. `SaveOnboardingStep` bloquea el draft.

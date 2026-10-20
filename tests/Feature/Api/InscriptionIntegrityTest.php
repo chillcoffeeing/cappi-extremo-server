@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Api;
 
+use App\Actions\Inscriptions\RegisterParticipantInscription;
 use App\Actions\Onboarding\CompleteOnboarding;
 use App\Models\Order;
 use App\Models\Participant;
@@ -302,6 +303,18 @@ class InscriptionIntegrityTest extends TestCase
         $this->postJson("/api/onboarding/{$user->uuid}/complete")->assertOk();
     }
 
+    // ── F-077: sin alta de hijos desde el portal ──
+
+    public function test_portal_can_no_longer_create_participants(): void
+    {
+        $user = User::factory()->create(['onboarding_status' => 'COMPLETADO']);
+        Sanctum::actingAs($user);
+
+        $this->postJson('/api/participantes', ['name' => 'C', 'birthDate' => '2016-05-05', 'gender' => 'FEMENINO'])
+            ->assertStatus(405);
+        $this->assertSame(0, Participant::count());
+    }
+
     // ── api-A-5: plazas de ordenes CANCELADA ──
 
     public function test_cancelled_registration_order_does_not_cover_a_new_participant(): void
@@ -319,11 +332,9 @@ class InscriptionIntegrityTest extends TestCase
             'user_uuid' => $user->uuid, 'ordered_at' => now()->toDateString(), 'items' => $items(),
             'total' => 150, 'paid' => 0, 'status' => 'PENDIENTE_PAGO', 'is_registration' => true,
         ]);
-        Sanctum::actingAs($user);
-
-        $this->postJson('/api/participantes', [
-            'name' => 'C', 'birthDate' => '2016-05-05', 'gender' => 'FEMENINO',
-        ])->assertOk();
+        // F-077: sin POST /participantes; misma alta que hace CompleteOnboarding.
+        $c = Participant::factory()->create(['user_uuid' => $user->uuid, 'name' => 'C', 'birth_date' => '2016-05-05', 'gender' => 'FEMENINO', 'data_completed' => false]);
+        app(RegisterParticipantInscription::class)->handle($c);
 
         // C tiene su propia orden (antes: "covered 2 >= 2" y quedaba gratis).
         $active = $user->orders()->where('is_registration', true)->where('status', '!=', 'CANCELADA')->get();

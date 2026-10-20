@@ -2,20 +2,17 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Actions\Inscriptions\RegisterParticipantInscription;
 use App\Actions\Participants\CompleteParticipantWizard;
 use App\Actions\Participants\SaveParticipantWizardStep;
 use App\Actions\Participants\UpdateParticipant;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\SaveParticipantWizardStepRequest;
-use App\Http\Requests\StoreParticipantRequest;
 use App\Http\Requests\UpdateParticipantRequest;
 use App\Http\Requests\UploadPhotoRequest;
 use App\Http\Resources\ParticipantResource;
 use App\Http\Resources\ParticipantWizardResource;
 use App\Models\Participant;
 use App\Support\PublicPhoto;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class ParticipantController extends Controller
@@ -25,30 +22,6 @@ class ParticipantController extends Controller
         return ParticipantResource::collection(
             request()->user()->participants()->with('correctionRequests')->latest('id')->get(),
         );
-    }
-
-    public function store(
-        StoreParticipantRequest $request,
-        RegisterParticipantInscription $register,
-    ): JsonResponse {
-        $data = $request->validated();
-        $user = $request->user()->fresh();
-        $participant = $user->participants()->create([
-            'name' => $data['name'],
-            'birth_date' => $data['birthDate'],
-            'gender' => $data['gender'],
-            'data_completed' => false,
-            'health' => [],
-            'emergency_contacts' => [],
-            'pickup_contact' => null,
-            'wizard_steps' => [],
-        ]);
-
-        if ($user->onboarding_status === 'COMPLETADO') {
-            $register->handle($participant);
-        }
-
-        return (new ParticipantResource($participant))->response()->setStatusCode(200);
     }
 
     public function show(string $participant): ParticipantResource

@@ -19,7 +19,7 @@ use Illuminate\Validation\ValidationException;
 
 class CompleteOnboarding
 {
-    public const ALREADY_COMPLETED_MESSAGE = 'Tu inscripción ya fue completada. Para agregar otro participante usa «Agregar otro» en «Mis participantes» del portal.';
+    public const ALREADY_COMPLETED_MESSAGE = 'Tu inscripción ya fue completada. Si te faltó inscribir a algún hijo, escríbele al equipo de Cappi Xtremo.';
 
     /**
      * F-035: `$receipt` es el comprobante del primer pago (multipart

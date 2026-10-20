@@ -35,8 +35,7 @@ Route::get('/config/plan-price', [ConfigController::class, 'planPrice'])
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/participantes', [ParticipantController::class, 'index'])
         ->name('participants.index');
-    Route::post('/participantes', [ParticipantController::class, 'store'])
-        ->name('participants.store');
+    // F-077: sin alta de hijos desde el portal (todos se cargan en el onboarding).
     Route::get('/participantes/{participant}', [ParticipantController::class, 'show'])
         ->name('participants.show');
     Route::patch('/participantes/{participant}', [ParticipantController::class, 'update'])
