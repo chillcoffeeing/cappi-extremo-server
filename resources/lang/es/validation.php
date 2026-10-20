@@ -39,6 +39,7 @@ return [
         'gender' => 'genero',
         'birthDate' => 'fecha de nacimiento',
         'items' => 'ítems',
+        'items.*.productoId' => 'producto del ítem',
         'items.*.nombre' => 'nombre del ítem',
         'items.*.variante' => 'variante del ítem',
         'items.*.qty' => 'cantidad del ítem',

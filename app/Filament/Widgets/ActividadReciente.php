@@ -27,7 +27,7 @@ class ActividadReciente extends TableWidget
      * grid de 2 columnas, asi que sin esto el widget quedaba a la mitad del
      * ancho del contenedor (F-018).
      */
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     public static function canView(): bool
     {

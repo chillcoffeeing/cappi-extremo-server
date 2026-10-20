@@ -2,7 +2,7 @@
 
 namespace App\Filament\Resources\OnboardingDrafts\Tables;
 
-use Filament\Actions\DeleteAction;
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -34,7 +34,7 @@ class OnboardingDraftsTable
             ])
             ->recordActions([
                 ViewAction::make(),
-                DeleteAction::make(),
+                AdminDeleteActions::onboardingDraft(),
             ]);
     }
 }

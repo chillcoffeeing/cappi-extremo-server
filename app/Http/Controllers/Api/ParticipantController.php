@@ -14,9 +14,9 @@ use App\Http\Requests\UploadPhotoRequest;
 use App\Http\Resources\ParticipantResource;
 use App\Http\Resources\ParticipantWizardResource;
 use App\Models\Participant;
+use App\Support\PublicPhoto;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
-use Illuminate\Support\Facades\Storage;
 
 class ParticipantController extends Controller
 {
@@ -65,7 +65,6 @@ class ParticipantController extends Controller
             $mapped[
                 match ($key) {
                     'birthDate' => 'birth_date',
-                    'photoUrl' => 'photo_url',
                     'shirtSize' => 'shirt_size',
                     'weightKg' => 'weight_kg',
                     'emergencyContacts' => 'emergency_contacts',
@@ -103,11 +102,14 @@ class ParticipantController extends Controller
     public function updatePhoto(UploadPhotoRequest $request, string $participant): ParticipantResource
     {
         $model = $this->ownedParticipant($participant);
-        if ($model->photo_url) {
-            Storage::disk('public')->delete($model->photo_url);
-        }
+        $previous = $model->photo_url;
         $path = $request->file('foto')->store('participants', 'public');
         $model->update(['photo_url' => $path]);
+        // api-A-7: solo se borra la foto anterior si es un archivo propio de
+        // `participants/` (nunca una URL ni una ruta con traversal).
+        if ($previous !== $path) {
+            PublicPhoto::deleteIfOwned($previous, 'participants');
+        }
 
         return new ParticipantResource($model->refresh());
     }

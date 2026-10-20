@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Auth\IssueAuthTokens;
 use App\Actions\Auth\RefreshAuthTokens;
+use App\Actions\Auth\ResetPortalPassword;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RefreshTokenRequest;
@@ -87,21 +88,22 @@ class AuthController extends Controller
         if ($user) {
             $token = Str::random(80);
             PortalAuthToken::create(['user_uuid' => $user->uuid, 'email' => $email, 'type' => 'password', 'token_hash' => hash('sha256', $token), 'expires_at' => now()->addHour()]);
-            logger()->info('Portal password reset token generated', ['email' => $email, 'token' => $token]);
+            // F-056 (api-A-1): el token NUNCA se escribe en el log (quien lea
+            // laravel.log podría tomar la cuenta). Se entregará por correo
+            // cuando exista el canal de notificaciones (F-036+).
+            logger()->info('Portal password reset token generated', ['user_uuid' => $user->uuid]);
         }
 
         return response()->json(null, 204);
     }
 
-    public function resetPassword(Request $request): JsonResponse
+    public function resetPassword(Request $request, ResetPortalPassword $resetPortalPassword): JsonResponse
     {
         $data = $request->validate(['token' => ['required', 'string'], 'password' => ['required', 'string', 'min:8']]);
-        $authToken = PortalAuthToken::where('type', 'password')->where('token_hash', hash('sha256', $data['token']))->whereNull('used_at')->first();
-        if (! $authToken || $authToken->expires_at->isPast()) {
+
+        if (! $resetPortalPassword->handle($data['token'], $data['password'])) {
             return response()->json(['message' => 'El enlace de restablecimiento no es valido o expiro'], 422);
         }
-        User::where('uuid', $authToken->user_uuid)->update(['password' => $data['password']]);
-        $authToken->update(['used_at' => now()]);
 
         return response()->json(null, 204);
     }

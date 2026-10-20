@@ -11,6 +11,7 @@ use App\Http\Resources\OnboardingDraftResource;
 use App\Models\OnboardingDraft;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class OnboardingController extends Controller
 {
@@ -52,6 +53,15 @@ class OnboardingController extends Controller
 
         if ($existing) {
             return $existing;
+        }
+
+        // F-059 (api-A-3): a un representante que ya completo su onboarding
+        // no se le abre un draft nuevo (con el se inscribian hijos sin orden).
+        // Sus drafts existentes se siguen pudiendo leer.
+        if (request()->user()->newQuery()->whereKey(request()->user()->getKey())->value('onboarding_status') === 'COMPLETADO') {
+            throw ValidationException::withMessages([
+                'onboarding' => [CompleteOnboarding::ALREADY_COMPLETED_MESSAGE],
+            ]);
         }
 
         $draft = request()->user()->onboardingDrafts()->make([

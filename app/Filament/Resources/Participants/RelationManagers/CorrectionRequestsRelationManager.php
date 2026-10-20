@@ -8,6 +8,7 @@ use App\Exceptions\ParticipantActionException;
 use App\Models\ParticipantCorrectionRequest;
 use Filament\Actions\Action;
 use Filament\Actions\CreateAction;
+use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
@@ -36,8 +37,19 @@ class CorrectionRequestsRelationManager extends RelationManager
             'salud' => 'Salud',
             'contactosEmergencia' => 'Contactos de emergencia',
             'seguroMedico' => 'Seguro médico',
-            'documentos' => 'Documentos',
         ];
+    }
+
+    /**
+     * F-061 (fe-A-16): `documentos` ya no se ofrece al crear (el portal no
+     * tiene esa sección y la familia nunca la veia), pero las solicitudes
+     * viejas con esa seccion se siguen mostrando con su etiqueta.
+     *
+     * @return array<string, string>
+     */
+    public static function sectionLabels(): array
+    {
+        return [...static::sectionOptions(), 'documentos' => 'Documentos'];
     }
 
     /**
@@ -65,7 +77,7 @@ class CorrectionRequestsRelationManager extends RelationManager
             ->recordTitleAttribute('section')
             ->defaultSort('created_at', 'desc')
             ->columns([
-                TextColumn::make('section')->label('Sección')->formatStateUsing(fn (string $state): string => static::sectionOptions()[$state] ?? $state),
+                TextColumn::make('section')->label('Sección')->formatStateUsing(fn (string $state): string => static::sectionLabels()[$state] ?? $state),
                 TextColumn::make('message')->label('Mensaje')->limit(40),
                 TextColumn::make('status')->label('Estado')->badge()->color(fn (string $state): string => match ($state) {
                     'RESUELTA' => 'success',
@@ -90,6 +102,11 @@ class CorrectionRequestsRelationManager extends RelationManager
             ->recordActions([
                 Action::make('resolve')
                     ->label('Resolver')
+                    // F-062 (api-A-6): solo quien puede gestionar correcciones
+                    // (policy `update`: participants.edit o corrections.manage).
+                    // `authorize` hace que Filament rechace tambien la llamada
+                    // directa por Livewire (no solo oculta el boton).
+                    ->authorize(fn (ParticipantCorrectionRequest $record): bool => static::canResolve($record))
                     ->visible(fn (ParticipantCorrectionRequest $record): bool => $record->status === 'PENDIENTE')
                     ->schema([
                         Select::make('status')->label('Resultado')->options([
@@ -99,6 +116,8 @@ class CorrectionRequestsRelationManager extends RelationManager
                         Textarea::make('resolution')->label('Resolución')->required(),
                     ])
                     ->action(function (array $data, ParticipantCorrectionRequest $record): void {
+                        abort_unless(static::canResolve($record), 403);
+
                         try {
                             app(ResolveParticipantCorrection::class)->handle(
                                 $record,
@@ -111,6 +130,16 @@ class CorrectionRequestsRelationManager extends RelationManager
                             Notification::make()->title($exception->getMessage())->danger()->send();
                         }
                     }),
+                // F-054: solo SUPER_ADMIN (ParticipantCorrectionRequestPolicy::delete,
+                // records.delete). Borrado de una fila sin efectos laterales.
+                DeleteAction::make()
+                    ->modalDescription('Se borrará esta solicitud de corrección. Esta acción es irreversible.'),
             ]);
+    }
+
+    /** F-062 (api-A-6): ParticipantCorrectionRequestPolicy::update. */
+    public static function canResolve(ParticipantCorrectionRequest $record): bool
+    {
+        return Auth::guard('admin')->user()?->can('update', $record) ?? false;
     }
 }

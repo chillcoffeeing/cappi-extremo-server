@@ -27,6 +27,12 @@ class ProductPolicy
         return $adminUser->can('products.manage');
     }
 
+    /** F-054 (C-5): habilita la accion masiva "Eliminar" del listado. */
+    public function deleteAny(AdminUser $adminUser): bool
+    {
+        return $adminUser->can('products.manage');
+    }
+
     public function delete(AdminUser $adminUser, Product $product): bool
     {
         return $adminUser->can('products.manage');

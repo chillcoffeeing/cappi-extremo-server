@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\PaymentMethods\Tables;
 
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\EditAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -20,6 +21,7 @@ class PaymentMethodsTable
             ])
             ->recordActions([
                 EditAction::make(),
+                AdminDeleteActions::paymentMethod(),
             ]);
     }
 }

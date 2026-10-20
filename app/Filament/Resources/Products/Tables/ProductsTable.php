@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Products\Tables;
 
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -23,10 +24,14 @@ class ProductsTable
             ])
             ->recordActions([
                 EditAction::make(),
+                AdminDeleteActions::product(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    // F-054 (C-5): visible con deleteAny; cada registro se
+                    // re-autoriza con la policy delete() (products.manage).
+                    // Las ordenes guardan su propia copia del producto.
+                    DeleteBulkAction::make()->authorizeIndividualRecords('delete'),
                 ]),
             ]);
     }

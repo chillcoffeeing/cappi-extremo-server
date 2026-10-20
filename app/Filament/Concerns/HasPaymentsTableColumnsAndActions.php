@@ -5,6 +5,7 @@ namespace App\Filament\Concerns;
 use App\Actions\Payments\ApprovePayment;
 use App\Actions\Payments\RejectPayment;
 use App\Exceptions\PaymentActionException;
+use App\Filament\Support\RepresentativeDisplay;
 use App\Models\Payment;
 use Closure;
 use Filament\Actions\Action;
@@ -31,7 +32,7 @@ trait HasPaymentsTableColumnsAndActions
             TextColumn::make('reference')->label('Referencia')->searchable(),
             TextColumn::make('amount')->label('Monto')->money('USD')->sortable(),
             TextColumn::make('method_name')->label('Método'),
-            TextColumn::make('user.name')->label('Representante')->searchable(),
+            RepresentativeDisplay::column(),
             TextColumn::make('order.uuid')->label('Orden')->limit(8)->placeholder('Sin orden'),
             TextColumn::make('status')->label('Estado')->badge()->color(fn (string $state): string => match ($state) {
                 'APROBADO' => 'success',
@@ -50,13 +51,24 @@ trait HasPaymentsTableColumnsAndActions
             Action::make('receipt')
                 ->label('Comprobante')
                 ->icon('heroicon-o-paper-clip')
+                // F-062 (api-A-9): solo con permiso financiero
+                // (PaymentPolicy::downloadReceipt -> payments.receipts).
+                // `authorize` bloquea tambien la llamada directa por Livewire.
+                ->authorize(fn (Payment $record): bool => static::paymentCanDownloadReceipt($record))
                 ->visible(fn (Payment $record): bool => filled($record->receipt_path))
-                ->action(fn (Payment $record) => response()->streamDownload(
-                    function () use ($record): void {
-                        echo Storage::disk('local')->get($record->receipt_path);
-                    },
-                    $record->receipt_name,
-                )),
+                ->action(function (Payment $record) {
+                    abort_unless(static::paymentCanDownloadReceipt($record), 403);
+
+                    // F-062 (api-A-12): si el archivo ya no esta en el disco se
+                    // avisa, en vez de descargar un archivo vacio.
+                    if (! Storage::disk('local')->exists((string) $record->receipt_path)) {
+                        Notification::make()->title('El archivo del comprobante no está disponible.')->danger()->send();
+
+                        return null;
+                    }
+
+                    return Storage::disk('local')->download($record->receipt_path, $record->receipt_name);
+                }),
             Action::make('approve')
                 ->label('Aprobar')
                 ->color('success')
@@ -79,6 +91,11 @@ trait HasPaymentsTableColumnsAndActions
         $admin = Auth::guard('admin')->user();
 
         return $admin !== null && $record->status === 'PENDIENTE_VERIFICACION' && $admin->can($ability, $record);
+    }
+
+    private static function paymentCanDownloadReceipt(Payment $record): bool
+    {
+        return Auth::guard('admin')->user()?->can('downloadReceipt', $record) ?? false;
     }
 
     private static function paymentRunAction(Closure $callback): void

@@ -28,6 +28,16 @@ class PlanPolicy
     }
 
     /**
+     * F-054 (C-5): habilita la accion masiva "Eliminar" del listado. Cada plan
+     * se vuelve a autorizar con delete() (authorizeIndividualRecords), asi
+     * que un plan con inscripciones nunca se borra.
+     */
+    public function deleteAny(AdminUser $adminUser): bool
+    {
+        return $adminUser->can('plans.manage');
+    }
+
+    /**
      * "El borrado de planes con inscripciones debe estar bloqueado; usar
      * estados" (02-datos-y-migraciones.md).
      */

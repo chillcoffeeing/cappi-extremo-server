@@ -5,6 +5,7 @@ namespace App\Actions\Payments;
 use App\Exceptions\PaymentActionException;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\PaymentMethod;
 use App\Support\Money;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\UploadedFile;
@@ -36,8 +37,10 @@ class LinkOrderPayment
 
     public const MINIMUM_INSTALLMENT = 20;
 
+    public const METHOD_UNAVAILABLE_MESSAGE = 'Método de pago no disponible.';
+
     /**
-     * @param  array{monto: float|int|string, esCompleto: bool, metodoId: string, metodoNombre: string, referencia: string}  $data
+     * @param  array{monto: float|int|string, esCompleto: bool, metodoId: string, metodoNombre?: string, referencia: string}  $data
      */
     public function handle(Order $order, array $data, UploadedFile $receipt): Order
     {
@@ -49,6 +52,15 @@ class LinkOrderPayment
                 $amount = round((float) $data['monto'], 2);
 
                 $this->assertCanReport($order, $amount, (bool) $data['esCompleto']);
+
+                // F-062 (api-A-11): el metodo se resuelve en el servidor, igual
+                // que PaymentController::store y CompleteCoordinatedPayment. El
+                // `metodoNombre` del cliente se ignora (un portal viejo lo sigue
+                // mandando y no falla); se guarda el nombre real del catalogo.
+                $method = PaymentMethod::where('code', (string) $data['metodoId'])->where('active', true)->first();
+                if (! $method) {
+                    throw new PaymentActionException(self::METHOD_UNAVAILABLE_MESSAGE);
+                }
 
                 // F-049: la referencia es obligatoria (FormRequest), asi que el
                 // hash siempre es orden + referencia + monto normalizado.
@@ -67,8 +79,8 @@ class LinkOrderPayment
                     'paid_at' => now()->toDateString(),
                     'amount' => $amount,
                     'currency' => 'USD',
-                    'method_code' => $data['metodoId'],
-                    'method_name' => $data['metodoNombre'],
+                    'method_code' => $method->code,
+                    'method_name' => $method->name,
                     'reference' => $reference,
                     // F-046: el item de una orden de inscripción ya se llama
                     // 'Inscripción · <plan>'; se quita ese prefijo para no

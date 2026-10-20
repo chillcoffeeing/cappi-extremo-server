@@ -11,7 +11,9 @@ El contrato completo y canónico está en [portal/docs/business-logic/12-api-con
 - Dinero como número JSON respaldado por `decimal(16,4)` en MySQL; no usar `float` para cálculos.
 - `200` para lecturas y actualizaciones, `201` para creaciones y `204` para eliminaciones o acciones sin cuerpo.
 - Errores: `{ "message": "..." }`, con `422` para validación, `401` para sesión inválida y `404` para recursos inexistentes. La validación por campo de un paso del wizard devuelve además `errors: { "data.<campo>": [ "..."] }` (shape Laravel, claves prefijadas con `data.`).
-- CORS permite el portal y `localhost:5173` en desarrollo. No usar credenciales de cookie.
+- CORS: no hay `config/cors.php`, así que rige el default del framework (`HandleCors` con
+  `allowed_origins: ['*']` para `api/*`, sin credenciales). El portal no usa cookies (Bearer). Si
+  se quiere restringir a `app.cappixtremo.com`, hay que publicar `config/cors.php` (F-063, fe-C-7).
 
 ## Rutas previstas
 
@@ -31,23 +33,78 @@ Implementado y probado:
   (backoffice F-010): lista de `{ id, seccion, mensaje, estado, resolucion, fecha }` creada desde
   `/admin/participants/{id}`. `seccion` usa las mismas 5 claves que `SectionKey` en el portal
   (`datosBasicos`, `salud`, `contactosEmergencia`, `seguroMedico`, `documentos`).
-  Ver shape completo en `portal/docs/business-logic/12-api-contrato.md`.
+  Ver shape completo en `portal/docs/business-logic/12-api-contrato.md`. F-061: el admin ya no
+  ofrece `documentos` al crear (las viejas se siguen viendo); guardar una sección no resuelve la
+  solicitud, la resuelve un admin.
+
+### Participantes: PATCH, foto y wizard (F-061)
+
+- `PATCH /participantes/{id}` (`UpdateParticipantRequest` → `UpdateParticipant`):
+  - `emergencyContacts` **reemplaza la lista completa** (antes el merge por índice duplicaba al
+    borrar, fe-A-5).
+  - `pickupContact: null` quita el encargado; un objeto reemplaza al anterior (fe-A-17).
+  - `medicalInsurance` con `noTiene: true` reemplaza; si no, merge de objeto.
+  - `health` mantiene el merge profundo de objeto.
+  - **`photoUrl` se ignora** (fe-A-4 / api-A-7): ya no tiene regla, `validated()` lo descarta y
+    el resto del PATCH se guarda. Compatibilidad: un portal viejo cacheado que lo manda no recibe
+    422. La foto solo cambia por `PUT /participantes/{id}/foto`.
+- `PUT /participantes/{id}/foto` y `PUT /representante/foto` borran la foto anterior solo si es
+  un archivo propio (`participants/…` o `profiles/…`, sin URL, `..`, `\`, `:` ni `/` inicial;
+  `App\Support\PublicPhoto::deleteIfOwned`). Un valor manipulado nunca borra imágenes del
+  catálogo ni de otra familia, ni da 500 por traversal.
+- `fotoUrl` (participante y representante) = `Storage::disk('public')->url(photo_url)`
+  (fe-B-1, sin depender de `FILESYSTEM_DISK`); si la columna tiene una URL absoluta legada se
+  devuelve tal cual (guard idempotente, sin migración: en prod hay 0 filas `LIKE 'http%'`).
+- `GET /participantes/{id}/wizard` responde **sin wrapper `data`** (`participantId`,
+  `datosCompletos`, `completedSteps`, `data` = pasos guardados). El portal lo usa para retomar el
+  wizard (fe-A-15).
 - Onboarding general: draft persistente, pasos idempotentes y completion.
 - Cuenta, plan activo, pagos, órdenes y catálogo de productos.
 
-Pendiente:
+Pendiente (revisado en F-063 contra `routes/api.php`):
 
-- Auth avanzada pendiente: recuperación de contraseña y verificación de email.
-- Recuperación/verificación de Auth y seeders de plan, métodos de pago y catálogo.
-- Cuenta, plan, inscripciones, pagos, órdenes y catálogo.
+- **Envío de correos.** `POST /auth/forgot-password`, `/reset-password` y `/verify-email` existen,
+  pero no hay canal de correo: el enlace de recuperación/verificación no le llega a nadie
+  (spec en `docs/notificaciones/`, F-036..F-043).
+- Todo lo demás que consume el portal (cuenta, participantes, plan, onboarding, inscripciones,
+  pagos, órdenes y catálogo) está implementado; ver la lista de rutas más abajo.
 
-La migración `participants` y el modelo `Participant` ya existen. No se deben
-crear rutas de los dominios pendientes hasta tener su Action, Request, Resource
-y test Feature correspondientes.
+No se deben crear rutas nuevas sin su Action, Request, Resource y test Feature correspondientes.
 
 El refresh rotativo ya está implementado: los tokens opacos se almacenan
 hasheados, expiran en 24 horas o 30 días según `remember`, se revocan al usarlo
 y el replay del token anterior devuelve `401`.
+
+### Seguridad de cuentas (F-056)
+
+- **Reset de contraseña** (`POST /auth/reset-password`, Action
+  `App\Actions\Auth\ResetPortalPassword`): transacción con `lockForUpdate`
+  del token; contraseña por Eloquent (cast `hashed` → bcrypt); invalida los
+  demás tokens `password` pendientes; borra los tokens Sanctum y revoca los
+  refresh tokens del usuario (cierra todas sus sesiones). `forgot-password` ya
+  **no** escribe el token en el log (no hay canal de correo todavía: F-036+).
+- **Rate limiting** (limiters en `AppServiceProvider`, middleware `throttle:*`
+  en `routes/api.php`). Al pasar el límite: `429` con
+  `{ "message": "Demasiados intentos. Espera un minuto e inténtalo de nuevo." }`.
+
+  | Ruta | Limiter | Límite |
+  | --- | --- | --- |
+  | `POST /auth/login` | `portal-login` | 5/min por IP+email (minúsculas) y 60/min por IP |
+  | `POST /auth/register` | `portal-register` | 20/min por IP |
+  | `POST /auth/forgot-password`, `/reset-password`, `/verify-email` | `portal-password` | 3/min por IP+email/token y 20/min por IP |
+  | `POST /auth/refresh` | `portal-refresh` | 120/min por IP |
+
+  Los límites por IP son holgados porque varias familias pueden compartir IP
+  (colegio, CGNAT). La IP es `$request->ip()`: no hay `trustProxies`
+  configurado, que es lo correcto en cPanel sin CDN (`REMOTE_ADDR` es el
+  cliente). Si se pone Cloudflare u otro proxy delante, hay que configurar
+  `$middleware->trustProxies(at: [...])` en `bootstrap/app.php` o todas las
+  familias contarán como la IP del proxy.
+- **Duplicados**: `PUT /representante/contacto` con un `correo` de otra cuenta y
+  `PUT /representante/identificacion` con un `documento` de otra cuenta
+  responden `422` con `errors.correo` / `errors.documento` (antes 500).
+- **`GET /api/user` eliminado**: devolvía el modelo crudo en snake_case, fuera
+  del contrato. El portal usa `GET /representante`.
 
 ### Públicas
 
@@ -61,19 +118,28 @@ y el replay del token anterior devuelve `401`.
 ### Requieren `auth:sanctum`
 
 - `POST /auth/logout`
-- `GET|PUT /representante`
-- `GET|PATCH /participantes`
+- `GET /representante`, `PUT /representante/contacto`, `PUT /representante/identificacion`,
+  `PUT /representante/encargado` y `PUT /representante/foto` (no hay `PUT /representante`)
+- `GET /participantes`, `GET|PATCH /participantes/{id}` y `PUT /participantes/{id}/foto`
+- `POST /participantes` — alta de hijo ("Agregar participante"): body
+  `{ name, birthDate (Y-m-d), gender }` (claves en inglés), responde `200 { data: Participante }`.
+  Si el representante ya completó el onboarding y hay plan operativo crea la inscripción y una
+  orden de inscripción nueva y recalcula el descuento por hermanos (`RegisterParticipantInscription`;
+  F-063 fe-C-3 lo documenta, existía desde antes)
 - `GET /inscripciones/{participante}/detalle`
 - `GET /pagos/balance`
 - `GET|POST /pagos`
 - `POST /pagos/{payment}/completar-coordinado` — completa el pago coordinado pendiente del
   onboarding (F-051; ver notas más abajo)
 - `GET /pagos/{payment}/comprobante` — descarga el comprobante (disco privado `local`); solo el
-  representante dueño del pago, `404` para cualquier otro usuario (backoffice F-004)
+  representante dueño del pago, `404` para cualquier otro usuario (backoffice F-004); `404` también si el archivo ya no
+  está en el disco (F-062 api-A-12; antes `500`)
 - `GET|POST /ordenes`
 - `POST /ordenes/{id}/enlazar-pago`
 - `GET /participantes/{id}/wizard`, `POST /participantes/{id}/wizard/step` y `POST /participantes/{id}/wizard/complete`
-- `GET|POST /onboarding/{draftId}` y `POST /onboarding/{draftId}/complete`
+- `GET /onboarding/{draftId}`, `POST /onboarding/{draftId}/step` y
+  `POST /onboarding/{draftId}/complete` (`draftId` = uuid del usuario). Desde F-063 (fe-A-14) el
+  portal usa el `GET` para retomar el onboarding en otro navegador; sin cambios en el API.
 - `GET /config/metodos-pago`
 - `GET /tienda/productos`
 
@@ -105,19 +171,24 @@ y el replay del token anterior devuelve `401`.
         "edadMin": 4,
         "edadMax": 15,
         "descripcion": "",
-        "dias": [{ "date": "2026-12-14", "numeroDia": 1, "descripcion": "" }],
+        "dias": [{ "numeroDia": 1, "fecha": "2026-12-14", "titulo": "Llegada", "descripcion": "", "ubicacion": null, "estado": "PLANIFICADO", "actividades": [] }],
         "avance": { "modo": "AUTO", "porcentaje": 0, "etiqueta": null, "diaActual": null, "totalDias": 0 },
         "avisos": []
     }
 }
 ```
 
-`dias`, `avance` y `avisos` son nuevos (F-005, backoffice Fase 2). El portal
-**no los consume todavía** — `12-api-contrato.md` lo marca como pendiente.
+`dias`, `avance` y `avisos` son nuevos (F-005, backoffice Fase 2). **Desde F-063 el Inicio del
+portal los consume** (fe-A-9/fe-C-2): el momento del plan sale de `estado` + `fechaInicio`/
+`fechaFin`, el día actual de `avance.diaActual` o de `dias[].fecha`, la barra de avance de
+`avance.porcentaje`, y `avisos` se muestran arriba del resumen de pagos. Detalle en
+`12-api-contrato.md`. `fechaInicio`/`fechaFin` pueden ser `null`.
 Mientras el admin no cargue `plan_days` para un plan, `dias` sigue devolviendo
-el JSON legado de `plans.days` (compatibilidad temporal, ver
-`api/docs/backoffice/02-datos-y-migraciones.md`); en cuanto existan filas en
-`plan_days`, `dias` pasa a la forma estructurada:
+el JSON legado de `plans.days` (`{ date, numeroDia, descripcion }` con HTML; compatibilidad
+temporal, ver `api/docs/backoffice/02-datos-y-migraciones.md`); en cuanto existan filas en
+`plan_days`, `dias` pasa a la forma estructurada (F-063: solo los días con `is_visible`, ordenados
+por `sort_order` y `day_number`; si todos están ocultos, `[]`, sin volver al JSON legado;
+`avance.totalDias` sigue contando todos):
 
 ```json
 "dias": [
@@ -138,6 +209,12 @@ el JSON legado de `plans.days` (compatibilidad temporal, ver
 `avisos` solo incluye los que están `is_visible=true` y dentro de su ventana
 `starts_at`/`ends_at` (o sin ventana definida).
 
+**Sin plan operativo (F-059, fe-C-4):** si ningún plan está `PUBLICADO` ni
+`EN_CURSO` (entre temporadas), `GET /planes/activo` responde **`204 No Content`**
+sin cuerpo (no `404`, no `{data:null}`). El portal lo trata como "No hay
+inscripciones abiertas en este momento" (wizard con "Continuar" deshabilitado) y
+en Inicio no muestra el hero del plan.
+
 Los registros de dominio exponen un UUID público. Las relaciones canónicas usan
 únicamente UUID (`user_uuid`, `participant_uuid`, `plan_uuid` y `order_uuid`).
 Las columnas enteras antiguas no forman parte del esquema final; la migración las
@@ -151,7 +228,7 @@ migración destructiva e irreversible; debe existir un backup antes de aplicarla
 ### `GET /config/plan-price` — reglas de pago del onboarding
 
 Devuelve el costo base por participante y la regla vigente de descuento familiar.
-La respuesta se usa en el paso `pago` del onboarding; el total se calcula como
+La respuesta se usa desde el paso `participantes` del onboarding (banner de descuento) y en `pago`; el total se calcula como
 `participantes * precio - descuentoPorParticipante * participantes` cuando se
 alcanza el mínimo configurado.
 
@@ -177,8 +254,8 @@ y se edita desde el tab "Precio y cupos" del recurso Plan en el panel Filament.
 la respuesta trae `precio: null` y `descuentoHermano` con valores neutros
 (`activo: false`, montos en 0). El backend usa el precio persistido del plan
 como fuente de verdad al completar el onboarding.
-El portal consulta este endpoint estrictamente al montar el paso 4 (`pago`), no al
-montar el wizard.
+El portal consulta este endpoint desde el paso "Participantes" (F-024, para mostrar el
+descuento por hermanos) y lo reintenta al cambiar de paso; no al montar el wizard.
 
 La tabla `platform_settings` (fila única, previa a F-017) queda **deprecada**:
 ya no se lee en ningún flujo en tiempo de ejecución. Se conserva sin borrar
@@ -317,6 +394,11 @@ Fuente única de formatos/límites: `app/Support/UploadRules.php` (espejo en el 
   (`lockForUpdate`). Si dos envíos idénticos simultáneos chocan con el índice único, el segundo
   responde `422 "Este pago ya fue reportado. Evita duplicados."` (no `500`). Orden inexistente o
   ajena → `404`.
+- **Método validado (F-062 api-A-11):** `enlazar-pago` resuelve `metodoId` contra
+  `payment_methods` (`code` + `active = true`), igual que `POST /pagos` y `completar-coordinado`.
+  Si no existe o está inactivo → `422 "Método de pago no disponible."` (no se crea el pago ni se
+  guarda el archivo). `metodoNombre` se sigue aceptando (un portal viejo lo manda), pero se
+  ignora: el pago guarda el `name` del catálogo. Los pagos ya guardados no se tocan.
 - **`POST /ordenes/{id}/enlazar-pago` — saldo reportable (F-047):** el monto se valida contra el
   **saldo reportable** = `total - paid - Σ(pagos PENDIENTE_VERIFICACION de la orden)`
   (`Order::reportableBalance()`), no contra el saldo contable, para que la suma de reportes en
@@ -357,6 +439,29 @@ Fuente única de formatos/límites: `app/Support/UploadRules.php` (espejo en el 
   campo como en enlazar-pago. **Saldo reportable sin contar ese mismo pago:**
   `total - paid - (Σ pendientes - monto del placeholder)`; si el placeholder era de modalidad
   completo, se puede reportar hasta el saldo completo.
+- **`POST /ordenes` — pedido de tienda resuelto en el servidor (F-058, api-A-2/api-A-13):**
+  body `{ items: [{ productoId, variante, qty }] }`. Action `App\Actions\Orders\CreateStoreOrder`:
+  busca el `Product` por `uuid`, toma **nombre y precio del catálogo** (el `precio`/`nombre` del
+  cliente se ignoran), exige `in_stock`, valida `variante` ∈ `variants` (recortadas, no vacías) o
+  `null` si el producto no tiene variantes, une líneas repetidas (producto + variante) y calcula
+  `total = Σ precio × qty` (redondeo a 4 decimales, tope de `decimal(16,4)`). Cada ítem guardado:
+  `{ productoId, nombre, variante, qty, precio }` (solo agrega `productoId`; `variante` puede ser
+  `null`). Topes en `StoreOrderRequest`: `items` 1..20, `qty` entero 1..99 (también tras unir
+  líneas), `productoId` string ≤ 64, `nombre`/`variante` ≤ 255. Errores `422 { message, errors }`
+  en español, nunca `500`: producto inexistente → `items.N.productoId` "Uno de los productos del
+  carrito ya no está en la tienda. Actualiza la página e intenta de nuevo."; sin stock →
+  `items.N.productoId` "«X» no tiene stock en este momento. Quítalo del carrito para continuar.";
+  variante inválida → `items.N.variante` "«X» no tiene la opción «V». Actualiza la página…"; falta
+  variante → "Elige una opción de «X» antes de crear el pedido."; `qty` > 99 → `items.N.qty`
+  "Puedes pedir hasta 99 unidades de cada producto por pedido."; más de 20 líneas → `items`.
+  **Compatibilidad (portal cacheado anterior a F-058):** se sigue aceptando el shape viejo
+  `{ nombre, variante, qty, precio }`; se resuelve por `name` exacto (si hay varios productos con
+  ese nombre, la variante desambigua), `precio` se ignora y se aplican las mismas reglas; si no se
+  identifica un único producto → `422 items.N.nombre` "«X» ya no está en la tienda. Actualiza la
+  página e intenta de nuevo." / "No pudimos identificar «X» en la tienda…". Las órdenes existentes
+  no se tocan ni se re-precian. Tests: `tests/Feature/Api/StoreOrderTest.php`.
+- **`GET /tienda/productos` (F-058):** sin cambios de shape; `id` es el uuid que el portal manda
+  como `productoId`; `variantes` e `imagenes` pueden ser `[]` (el producto se compra igual).
 - **`POST /onboarding/{draftId}/complete`** acepta `multipart/form-data` con `comprobante`
   (opcional a nivel de FormRequest). `CompleteOnboarding::handle($draft, $receipt)` lo exige cuando
   hay monto a reportar y el método resuelto **no** es `COORDINADO_REMOTO` (método DIRECTO):
@@ -367,6 +472,57 @@ Fuente única de formatos/límites: `app/Support/UploadRules.php` (espejo en el 
   (`comprobantes/`) y llena `receipt_path`/`receipt_name` del `Payment`, así que es descargable por
   `GET /pagos/{payment}/comprobante` y visible en Filament. `COORDINADO_REMOTO` sigue sin
   comprobante. Si la transacción falla, el archivo guardado se borra.
+
+### Inscripciones y saldos (F-059)
+
+Revisión 2026-10-19 (api-A-3, A-4, A-5, B-1, B-2, B-5). Las respuestas solo agregan casos `422`
+con `{ message, errors }` en español; ningún shape cambia.
+
+- **El onboarding se completa una sola vez (api-A-3).** La regla depende del estado del
+  **representante** (`users.onboarding_status`):
+  - Mientras **no** esté `COMPLETADO`, su draft se guarda y se completa como siempre, también un
+    draft guardado con el formato viejo (`data.pago` plano, `metodo` por nombre) o uno marcado
+    `COMPLETADO` sin que el usuario lo esté.
+  - Si **ya** está `COMPLETADO`:
+    - `POST /onboarding/{id}/step` y `POST /onboarding/{id}/complete` sobre **su draft
+      `COMPLETADO`** → `200` **idempotente**: devuelve el draft sin cambios (`status:
+      "COMPLETADO"`), no reabre el draft ni crea participantes, inscripciones, órdenes ni pagos.
+      Cubre el doble clic y el reintento tras un error de red.
+    - Sobre **cualquier otro draft** (existente o nuevo) → `422 errors.onboarding: ["Tu
+      inscripción ya fue completada. Para agregar otro participante usa «Agregar participante»
+      en el portal."]`.
+    - `GET /onboarding/{id}` y los `POST /onboarding/{id}/step|complete` con un `draftId` que no existe **ya no crea** un draft: mismo
+      `422 errors.onboarding`. Los drafts existentes se siguen pudiendo leer (`GET` → `200`).
+  - Los hijos nuevos de una familia ya inscrita van por `POST /participantes`
+    (`RegisterParticipantInscription`: orden nueva + recálculo del descuento hermanos).
+- **Locks (api-B-1/B-2).** `CompleteOnboarding` bloquea el `User` y luego el draft
+  (`lockForUpdate`) y revisa los estados ya bloqueado: dos `complete` simultáneos quedan en
+  serie y el segundo es idempotente. `SaveOnboardingStep` bloquea el draft.
+  `RegisterParticipantInscription` bloquea el `User` antes de leer o crear órdenes, y
+  `RecalculateInscriptionOrders` lee las órdenes de inscripción con `lockForUpdate` en orden de
+  `id`. El orden de locks es siempre **User → orders**, así que dos altas de la misma familia no
+  hacen deadlock entre sí. Con `ApprovePayment` (payment → order) tampoco, porque ese camino no
+  toma el `User`.
+- **Plazas de órdenes CANCELADA (api-A-5).** Para decidir si una familia ya tiene sus plazas
+  cubiertas, `RegisterParticipantInscription` solo cuenta las órdenes de inscripción **no**
+  `CANCELADA`. `RecalculateInscriptionOrders` no toca las `CANCELADA`: conservan `items`, `total`
+  y `status` tal como quedaron al cancelarlas. `CompleteOnboarding` no reutiliza una orden de
+  inscripción cancelada. No se re-precia ninguna orden en el despliegue.
+- **Mínimo de cuotas en el servidor (api-B-5).** En `complete`, con `pago.modalidad = "cuotas"`,
+  `montoAbonar` debe ser ≥ `LinkOrderPayment::MINIMUM_INSTALLMENT` ($20). Si el total es menor,
+  el mínimo es el total. Si no → `422 errors.montoAbonar: ["El abono mínimo es $20.00. Vuelve al
+  paso Pago y ajusta el monto."]` y no se crea nada.
+- **Pasos faltantes (fe-B-5).** El `422 errors.steps` ahora dice "Faltan pasos por guardar (…).
+  Revisa los pasos con «Atrás» y vuelve a confirmar." (la clave `steps` no cambia). El portal,
+  al recibirlo, vuelve a guardar los pasos que tiene en local y reintenta una vez.
+- **`GET /pagos/balance` sin órdenes CANCELADA (api-A-4).** Mismo shape:
+  - `totalPagar` = Σ `total` de las órdenes **no** `CANCELADA`. Si la familia no tiene ninguna
+    orden de inscripción (ni siquiera cancelada), se usa Σ `enrollments.total_amount` como antes.
+  - `totalAbonado` = Σ `amount` de los pagos `APROBADO`, **sin** los vinculados a una orden
+    `CANCELADA`. Los reportes sueltos (`POST /pagos`, sin orden) siguen contando.
+  - `saldo` = `max(totalPagar − totalAbonado, 0)`.
+  Solo cambia la lectura: no se modifican órdenes ni pagos. Tests:
+  `tests/Feature/Api/InscriptionIntegrityTest.php`.
 
 Las rutas deben tener nombres explícitos, por ejemplo `pagos.index` y `pagos.store`, para que puedan documentarse y consumirse sin dispersar URLs.
 

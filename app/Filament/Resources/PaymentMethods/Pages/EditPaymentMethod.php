@@ -3,7 +3,7 @@
 namespace App\Filament\Resources\PaymentMethods\Pages;
 
 use App\Filament\Resources\PaymentMethods\PaymentMethodResource;
-use Filament\Actions\DeleteAction;
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Resources\Pages\EditRecord;
 
 class EditPaymentMethod extends EditRecord
@@ -13,7 +13,7 @@ class EditPaymentMethod extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            DeleteAction::make(),
+            AdminDeleteActions::paymentMethod(redirectToIndex: true),
         ];
     }
 }

@@ -54,9 +54,63 @@ products.manage
 reports.export
 audit.view
 admin_users.manage
+records.delete
+corrections.manage
+payments.receipts
 ```
 
+`records.delete` (F-053): borrado físico de representantes, participantes, inscripciones,
+borradores de onboarding y solicitudes de corrección. Solo SUPER_ADMIN. Ver
+`06-flujos-y-auditoria.md` → Retención.
+
+`corrections.manage` (F-062, api-A-6): solicitar y resolver solicitudes de corrección de ficha
+sin poder editar participantes. `ParticipantCorrectionRequestPolicy::create/update` acepta
+`participants.edit` **o** `corrections.manage`.
+
+`payments.receipts` (F-062, api-A-9): descargar comprobantes de pago en el panel
+(`PaymentPolicy::downloadReceipt`). `payments.view` solo deja ver la tabla.
+
+### Matriz de roles (fuente: `PermissionSeeder`, fijada en `PermissionMatrixTest`)
+
+| Permiso | SUPER_ADMIN | OPERACIONES | FINANZAS | SOPORTE | LECTURA |
+| --- | :-: | :-: | :-: | :-: | :-: |
+| `admin.access` | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `users.view` | ✓ | | | ✓ | ✓ |
+| `users.edit` | ✓ | | | ✓ | |
+| `onboarding.view` | ✓ | ✓ | | ✓ | ✓ |
+| `onboarding.manage` | ✓ | ✓ | | ✓ | |
+| `plans.view` | ✓ | ✓ | | | ✓ |
+| `plans.manage`, `plan_content.manage` | ✓ | ✓ | | | |
+| `participants.view` | ✓ | ✓ | | ✓ | ✓ |
+| `participants.edit` | ✓ | ✓ | | | |
+| `corrections.manage` (F-062) | ✓ | ✓ | | ✓ | |
+| `enrollments.view` | ✓ | ✓ | | | ✓ |
+| `enrollments.manage` | ✓ | ✓ | | | |
+| `orders.view` | ✓ | | ✓ | | ✓ |
+| `orders.manage` | ✓ | | ✓ | | |
+| `payments.view` | ✓ | | ✓ | | ✓ |
+| `payments.approve`, `payments.reject` | ✓ | | ✓ | | |
+| `payments.receipts` (F-062) | ✓ | | ✓ | | |
+| `payment_methods.manage`, `products.manage`, `reports.export` | ✓ | | ✓ | | |
+| `audit.view` | ✓ | | | | ✓ |
+| `admin_users.manage`, `records.delete` | ✓ | | | | |
+
+Acciones del panel que dependen de la matriz (F-062):
+
+- **Solicitar corrección / Resolver** (ficha del participante): `participants.edit` o
+  `corrections.manage` → SUPER_ADMIN, OPERACIONES, SOPORTE. LECTURA ve las solicitudes pero no
+  ve ni puede ejecutar las acciones (tampoco llamándolas por Livewire).
+- **Comprobante** (tablas de pagos): `payments.receipts` → SUPER_ADMIN, FINANZAS. LECTURA ve
+  la tabla de pagos pero no descarga el archivo. Si el archivo falta en el disco, el panel avisa
+  en vez de bajar un archivo vacío.
+
+Cuando se agregan permisos, el despliegue corre `php artisan db:seed --class=PermissionSeeder
+--force` y `php artisan permission:cache-reset` (el seeder solo sincroniza permisos de roles; no
+cambia el rol de ningún admin).
+
 Toda acción de Resource debe estar protegida por Policy, incluso si el botón se oculta en Filament.
+En las acciones de Filament se usa `->authorize(...)` (no solo `->visible(...)`): Filament rechaza
+entonces también la llamada directa por Livewire.
 
 ## Separación de datos
 
@@ -86,3 +140,7 @@ Las Actions deben ser reutilizables desde API, Filament, comandos y jobs; no deb
 ## Auditoría
 
 Registrar actor, acción, modelo, valores anteriores, valores nuevos, IP, user agent y fecha. Las acciones financieras, cambios de estado y publicaciones de contenido nunca deben quedar sin auditoría.
+
+`Order` audita `status`, `paid`, `total` e `items` (F-062, api-A-14: el recálculo de
+inscripciones y el borrado de participantes cambian `total`/`items`). Solo aplica a cambios
+posteriores al despliegue; el `activity_log` existente no se reescribe.

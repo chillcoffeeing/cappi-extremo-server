@@ -32,4 +32,14 @@ class PaymentPolicy
     {
         return $adminUser->can('payments.reject');
     }
+
+    /**
+     * F-062 (api-A-9): descargar el comprobante en el panel exige permiso
+     * financiero (`payments.receipts`: SUPER_ADMIN y FINANZAS). Ver la tabla
+     * de pagos no basta (LECTURA tiene `payments.view`).
+     */
+    public function downloadReceipt(AdminUser $adminUser, Payment $payment): bool
+    {
+        return $adminUser->can('payments.receipts');
+    }
 }

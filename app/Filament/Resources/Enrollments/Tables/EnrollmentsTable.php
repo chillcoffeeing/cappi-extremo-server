@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Enrollments\Tables;
 
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -35,6 +36,8 @@ class EnrollmentsTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                // F-054: solo SUPER_ADMIN (records.delete).
+                AdminDeleteActions::enrollment(),
             ]);
     }
 }

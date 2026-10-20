@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Support\PublicPhoto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class ParticipantResource extends JsonResource
 {
@@ -21,9 +21,7 @@ class ParticipantResource extends JsonResource
                 'fechaNacimiento' => $this->birth_date?->format('Y-m-d'),
                 'genero' => $this->gender,
                 'cedula' => $this->identification,
-                'fotoUrl' => $this->photo_url
-                    ? rtrim(config('app.url'), '/').Storage::url($this->photo_url)
-                    : null,
+                'fotoUrl' => PublicPhoto::url($this->photo_url),
                 'tallaCamisa' => $this->shirt_size,
                 'pesoKg' => $this->weight_kg !== null ? (float) $this->weight_kg : null,
             ],

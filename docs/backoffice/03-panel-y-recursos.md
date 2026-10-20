@@ -28,7 +28,14 @@ Participantes fue un pedido explícito del usuario):
 ### `UserResource` — implementado (F-006), solo lectura desde F-014
 
 Buscar por nombre, email, teléfono o identificación. Mostrar estado de onboarding, último acceso y contadores de participantes, órdenes y pagos. Usar Relation Managers para el expediente completo.
-Sin crear/eliminar: las cuentas nacen del portal. **F-014:** la ficha completa del representante
+Sin crear: las cuentas nacen del portal. Eliminar: solo SUPER_ADMIN (`records.delete`,
+`UserPolicy::delete`, Action `DeleteRepresentative`; F-053), conservando órdenes y pagos sin
+representante — regla en `06-flujos-y-auditoria.md`. **F-054:** botón "Eliminar" en la fila y en
+la ficha (Action propia de `App\Filament\Support\AdminDeleteActions`, nunca el `DeleteAction`
+plano): modal con `impact()` (lo que se borra / lo que se conserva, pagos en revisión, órdenes con
+saldo), confirmación escribiendo el email del representante y redirección al listado. Los
+RelationManagers del expediente (Participantes, Inscripciones, Onboarding) también tienen
+"Eliminar" por fila. **F-014:** la ficha completa del representante
 también pasó a solo lectura, ruta `/admin/users/{id}/details` (no `/edit`). **F-018:** las filas de
 los tabs "Inscripciones" y "Órdenes" son clicables (llevan a `/admin/enrollments/{id}/details` y
 `/admin/orders/{id}/details`); el tab "Pagos" tiene las mismas columnas y Actions
@@ -48,7 +55,11 @@ paso del wizard (cuenta, participantes, pago, confirmación...).
 Mostrar datos básicos, ficha completa, representante, inscripción (tab "Inscripción", F-015) y
 bloques de salud/contactos/seguro formateados (no JSON crudo). Acciones: solicitar
 corrección y marcar revisión.
-Sin crear/eliminar: las fichas nacen del wizard del portal. **F-014:** la ficha completa —
+Sin crear: las fichas nacen del wizard del portal. Eliminar: solo SUPER_ADMIN (`records.delete`,
+Action `DeleteParticipant`; F-053). **F-054:** botón "Eliminar" en la fila y en la ficha; el
+modal avisa que la orden de inscripción no cambia de plazas y que su total sube si la familia
+queda bajo el mínimo del descuento hermanos. Las solicitudes de corrección tienen `DeleteAction`
+(policy `records.delete`). **F-014:** la ficha completa —
 incluido el tab "Datos básicos" — es de **solo lectura**; el admin ya no edita ningún campo del
 participante directamente, solo puede solicitar una corrección (que el representante resuelve
 desde el portal, F-010). Ruta `/admin/participants/{id}/details`, no `/edit`. **F-014:** se quitó
@@ -60,7 +71,8 @@ Mostrar participante, plan, sesión, modalidad, total, descuento, estado. "Orden
 relacionados" nunca se mostró: `enrollments` no tiene relación explícita con `orders` (ver
 `02-datos-y-migraciones.md`, gap documentado desde antes del backoffice). Sin página de creación:
 nace de `RegisterParticipantInscription`, no de un formulario en blanco. **F-014:** pasó a
-solo lectura, ruta `/admin/enrollments/{id}/details`.
+solo lectura, ruta `/admin/enrollments/{id}/details`. **F-054:** "Eliminar" (solo SUPER_ADMIN,
+`DeleteEnrollment`) en la fila y en la ficha; la orden de inscripción no cambia.
 
 ### `PlanResource`
 
@@ -72,7 +84,11 @@ Users/Enrollments/OnboardingDrafts, este recurso **no** pasó a solo lectura en 
 siendo editable directamente (el estado operativo sí solo cambia por las Actions de arriba, no
 escribiendo el campo). **F-017:** el tab "Precio y cupos" agrega la configuración del descuento
 por hermanos, ahora por plan (antes era una fila global en `platform_settings`, deprecada — ver
-`02-datos-y-migraciones.md`).
+`02-datos-y-migraciones.md`). **F-054 (C-5):** la acción masiva "Eliminar" del listado de
+planes (y la de productos) ahora es visible con `deleteAny` (`plans.manage` / `products.manage`) y
+re-autoriza cada registro con `delete()` (`authorizeIndividualRecords`): un plan con
+inscripciones se omite. Días y avisos no tienen policy: su borrado (fila y masivo) lo puede hacer
+quien edita el plan.
 
 ### `PaymentResource` — retirado como recurso independiente en F-013
 
@@ -97,7 +113,12 @@ Separa órdenes de inscripción y tienda. Mostrar total, abonado, saldo, estado,
 (sin truncar) y sin "Guardar cambios"/"Cancelar". **F-014:** se quitó "Exportar" — de hecho se
 quitaron TODAS las exportaciones que existían en el admin (participantes, órdenes), a pedido
 explícito del usuario; no hay ninguna exportación disponible hasta que se pida una nueva
-específica.
+específica. **F-054:** órdenes y pagos nunca tienen "Eliminar". Si `user_uuid` es NULL (representante
+eliminado), las tablas de órdenes y pagos, la ficha de orden, `PaymentsWidget` y los
+RelationManagers muestran "Representante eliminado" con el `representative_snapshot` (nombre,
+email, identificación) vía `App\Filament\Support\RepresentativeDisplay`; la búsqueda por
+representante también busca en el snapshot; filtro "Sin representante" en órdenes y en pagos.
+Aprobar, rechazar y cancelar siguen disponibles.
 
 ### `PaymentMethodResource` — implementado (F-007), salvo "ámbitos de uso"
 

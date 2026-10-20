@@ -11,7 +11,14 @@ class UpdateParticipantRequest extends FormRequest
         return true;
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * F-061 (fe-A-4 / api-A-7): `photoUrl` ya no es escribible por PATCH; la
+     * foto solo cambia por `PUT /participantes/{id}/foto`. Un portal viejo
+     * cacheado que todavia lo manda NO recibe 422: el campo no tiene regla,
+     * asi que `validated()` lo descarta y el resto de la ficha se guarda.
+     *
+     * @return array<string, mixed>
+     */
     public function rules(): array
     {
         return [
@@ -19,7 +26,6 @@ class UpdateParticipantRequest extends FormRequest
             'birthDate' => ['sometimes', 'date_format:Y-m-d'],
             'gender' => ['sometimes', 'string', 'in:MASCULINO,FEMENINO,OTRO,PREFIERO_NO_DECIR'],
             'identification' => ['sometimes', 'nullable', 'string', 'max:40'],
-            'photoUrl' => ['sometimes', 'nullable', 'url', 'max:2048'],
             'shirtSize' => ['sometimes', 'nullable', 'string', 'max:20'],
             'weightKg' => ['sometimes', 'nullable', 'numeric', 'min:0', 'max:999.99'],
             'health' => ['sometimes', 'array'],

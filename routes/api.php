@@ -10,20 +10,18 @@ use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\PlanController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\RepresentativeController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+// F-056 (api-B-6): se quitó `GET /api/user` (devolvía el modelo crudo en
+// snake_case, fuera del contrato; el portal usa `GET /representante`).
 
 Route::prefix('auth')->group(function (): void {
-    Route::post('/register', [AuthController::class, 'register'])->name('auth.register');
-    Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
-    Route::post('/refresh', [AuthController::class, 'refresh'])->name('auth.refresh');
-    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->name('auth.forgot-password');
-    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->name('auth.reset-password');
-    Route::post('/verify-email', [AuthController::class, 'verifyEmail'])->name('auth.verify-email');
+    Route::post('/register', [AuthController::class, 'register'])->middleware('throttle:portal-register')->name('auth.register');
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:portal-login')->name('auth.login');
+    Route::post('/refresh', [AuthController::class, 'refresh'])->middleware('throttle:portal-refresh')->name('auth.refresh');
+    Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:portal-password')->name('auth.forgot-password');
+    Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:portal-password')->name('auth.reset-password');
+    Route::post('/verify-email', [AuthController::class, 'verifyEmail'])->middleware('throttle:portal-password')->name('auth.verify-email');
     Route::post('/logout', [AuthController::class, 'logout'])
         ->middleware('auth:sanctum')
         ->name('auth.logout');

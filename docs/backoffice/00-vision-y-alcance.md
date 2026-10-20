@@ -42,7 +42,7 @@ El admin debe controlar tanto los datos que llegan desde el portal como el conte
 
 | Rol           | Responsabilidad                                               |
 | ------------- | ------------------------------------------------------------- |
-| `SUPER_ADMIN` | Configuración completa y gestión de usuarios admin            |
+| `SUPER_ADMIN` | Configuración completa, gestión de usuarios admin y borrado de registros (F-053) |
 | `OPERACIONES` | Plan, días, actividades, staff, participantes e inscripciones |
 | `FINANZAS`    | Pagos, órdenes, saldos y reportes financieros                 |
 | `SOPORTE`     | Representantes, onboarding y solicitudes de corrección        |

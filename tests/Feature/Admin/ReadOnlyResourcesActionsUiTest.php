@@ -4,6 +4,7 @@ namespace Tests\Feature\Admin;
 
 use App\Filament\Resources\OnboardingDrafts\Pages\ViewOnboardingDraft;
 use App\Filament\Resources\Participants\Pages\ViewParticipant;
+use App\Filament\Resources\Users\Pages\ViewUser;
 use App\Models\AdminUser;
 use App\Models\OnboardingDraft;
 use App\Models\Participant;
@@ -72,5 +73,30 @@ class ReadOnlyResourcesActionsUiTest extends TestCase
 
         Livewire::test(ViewOnboardingDraft::class, ['record' => $draft->getKey()])
             ->assertActionVisible('contact');
+    }
+
+    /**
+     * F-054: las fichas siguen siendo de solo lectura (sin "Editar"); la
+     * unica accion nueva es "Eliminar", y solo para SUPER_ADMIN.
+     */
+    public function test_view_pages_stay_read_only_and_only_super_admin_gets_delete(): void
+    {
+        $this->superAdmin();
+        $user = User::factory()->create();
+        $participant = Participant::factory()->for($user, 'user')->create();
+
+        Livewire::test(ViewUser::class, ['record' => $user->getKey()])
+            ->assertActionDoesNotExist('edit')
+            ->assertActionVisible('delete');
+        Livewire::test(ViewParticipant::class, ['record' => $participant->getKey()])
+            ->assertActionDoesNotExist('edit')
+            ->assertActionVisible('delete');
+
+        $soporte = AdminUser::factory()->create();
+        $soporte->assignRole('SOPORTE'); // users.view + participants.view, sin records.delete
+        $this->actingAs($soporte, 'admin');
+
+        Livewire::test(ViewUser::class, ['record' => $user->getKey()])->assertActionHidden('delete');
+        Livewire::test(ViewParticipant::class, ['record' => $participant->getKey()])->assertActionHidden('delete');
     }
 }

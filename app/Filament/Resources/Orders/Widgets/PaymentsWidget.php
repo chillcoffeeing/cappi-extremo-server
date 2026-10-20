@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\Orders\Widgets;
 
 use App\Filament\Concerns\HasPaymentsTableColumnsAndActions;
+use App\Filament\Support\RepresentativeDisplay;
 use App\Models\Payment;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -32,7 +33,7 @@ class PaymentsWidget extends TableWidget
      * usa un grid de 2 columnas (`getFooterWidgetsColumns()`), asi que sin
      * esto el widget quedaba a la mitad del ancho del contenedor (F-018).
      */
-    protected int | string | array $columnSpan = 'full';
+    protected int|string|array $columnSpan = 'full';
 
     public static function canView(): bool
     {
@@ -52,6 +53,8 @@ class PaymentsWidget extends TableWidget
                     'APROBADO' => 'Aprobado',
                     'RECHAZADO' => 'Rechazado',
                 ]),
+                // F-054: pagos de representantes eliminados (user_uuid NULL).
+                RepresentativeDisplay::withoutRepresentativeFilter(),
             ])
             ->recordActions(static::paymentTableActions());
     }

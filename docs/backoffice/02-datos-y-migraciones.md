@@ -114,6 +114,24 @@ Crear tabla propia o integrar `spatie/laravel-activitylog`.
 - Cambiar el precio del plan no modifica órdenes existentes.
 - El borrado de planes con inscripciones debe estar bloqueado; usar estados. **Implementado
   (F-005)** en `PlanPolicy::delete()`.
+- **F-053 — reglas de FK al borrar** (migración `2026_10_19_000000_cascade_representative_children_and_add_representative_snapshot`,
+  que solo hace drop/add de FKs y agrega columnas nullable; no borra ni modifica filas ni limpia
+  huérfanos existentes):
+
+  | Columna | `ON DELETE` |
+  | --- | --- |
+  | `participants.user_uuid` | `CASCADE` |
+  | `onboarding_drafts.user_uuid` | `CASCADE` |
+  | `enrollments.participant_uuid` | `CASCADE` |
+  | `refresh_tokens.user_uuid` | `CASCADE` |
+  | `portal_auth_tokens.user_uuid` | `CASCADE` |
+  | `participant_correction_requests.participant_uuid` | `CASCADE` (desde su creación) |
+  | `orders.user_uuid`, `payments.user_uuid` | `SET NULL` (órdenes y pagos se conservan) |
+  | `payments.order_uuid`, `enrollments.plan_uuid` | `SET NULL` |
+
+  Columna nueva `representative_snapshot` (JSON, nullable) en `orders` y `payments`: solo la
+  rellena `DeleteRepresentative`. Las Actions borran hijos → padre de forma explícita; las FKs son
+  la red de seguridad. Regla de retención en `06-flujos-y-auditoria.md`.
 
 ## Migración de contenido existente
 

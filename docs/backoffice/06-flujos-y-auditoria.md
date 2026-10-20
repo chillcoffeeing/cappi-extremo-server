@@ -101,4 +101,30 @@ created_at
 
 ## Retención
 
-Definir una política de retención para auditoría y comprobantes antes de producción. Nunca eliminar evidencia financiera por un borrado de usuario; aplicar soft delete o anonimización donde corresponda.
+**Regla vigente (F-053, decisión del usuario 2026-10-19):** se conserva la evidencia financiera y
+todo lo demás se borra físicamente. Reemplaza la regla anterior ("soft delete o anonimización").
+
+- Solo **SUPER_ADMIN** borra registros (permiso `records.delete`, que no tiene ningún otro rol).
+- **Se conservan siempre:** órdenes, pagos, comprobantes (disco `local`) y `activity_log`. Órdenes y
+  pagos **no se borran nunca** (`OrderPolicy`/`PaymentPolicy` no tienen `delete()`).
+- **Borrar un representante** (`App\Actions\Admin\DeleteRepresentative`): sus órdenes y pagos
+  quedan con `user_uuid = NULL` y guardan `representative_snapshot` (JSON `name`, `lastName`,
+  `email`, `identification`, `deletedAt`); cada pago sigue unido a su orden (`order_uuid` intacto).
+  Se borran participantes (con inscripciones y solicitudes de corrección), borradores de
+  onboarding, refresh tokens, portal auth tokens, tokens Sanctum, la foto de perfil y las fotos de
+  participantes (estas, después del commit). No cambia ningún estado: un pago
+  `PENDIENTE_VERIFICACION` se aprueba o rechaza después y una orden con saldo se cancela a mano
+  (mientras tanto sigue contando en los KPIs). `impact()` da los conteos para el modal de
+  confirmación.
+- **Borrar un participante** (`DeleteParticipant`): inscripción, correcciones y foto; luego
+  `RecalculateInscriptionOrders` re-precia las órdenes de inscripción del representante (sin
+  cambiar cantidades: si la familia baja del mínimo, la orden pierde el descuento hermanos).
+- **Borrar una inscripción** (`DeleteEnrollment`): solo la inscripción.
+- Borradores de onboarding y solicitudes de corrección: borrado directo, también con
+  `records.delete`.
+- **Backoffice (F-054):** los botones "Eliminar" llaman a estas Actions (nunca al `delete()` por
+  defecto de Filament) y solo los ve SUPER_ADMIN. Las órdenes y pagos sin representante se
+  muestran como "Representante eliminado" con el snapshot, y hay filtro "Sin representante".
+- No se agrega log del borrado. El borrado es irreversible: el respaldo es el `mysqldump` previo
+  al despliegue (`docs/update-cpanel.md`).
+- Planes: sin cambios, un plan con inscripciones sigue sin poder borrarse (`PlanPolicy::delete`).

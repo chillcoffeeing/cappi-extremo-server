@@ -177,8 +177,22 @@ class WizardStepValidator
     /** @param  array<string, mixed>  $pickup */
     private function pickupFilled(array $pickup): bool
     {
-        return trim((string) ($pickup['nombre'] ?? '')) !== ''
-            || trim((string) ($pickup['telefono'] ?? '')) !== ''
-            || trim((string) ($pickup['relacion'] ?? '')) !== '';
+        foreach (['nombre', 'telefono', 'relacion'] as $field) {
+            $value = $pickup[$field] ?? null;
+
+            // F-062 (api-A-12): esto corre ANTES de validar. Un valor no
+            // escalar (array/objeto) cuenta como "lleno" para que las reglas
+            // `string` lo rechacen con 422, en vez del 500 "Array to string
+            // conversion" del cast.
+            if (! is_scalar($value) && $value !== null) {
+                return true;
+            }
+
+            if (trim((string) $value) !== '') {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

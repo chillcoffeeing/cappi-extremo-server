@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\RelationManagers;
 
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\ViewAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -30,6 +31,8 @@ class OnboardingDraftsRelationManager extends RelationManager
             ->headerActions([])
             ->recordActions([
                 ViewAction::make()->url(fn ($record): string => route('filament.admin.resources.onboarding-drafts.view', $record)),
+                // F-054: solo SUPER_ADMIN (records.delete).
+                AdminDeleteActions::onboardingDraft(),
             ]);
     }
 }

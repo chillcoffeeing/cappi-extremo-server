@@ -24,6 +24,8 @@ class Order extends Model
             'paid' => 'decimal:4',
             'is_registration' => 'boolean',
             'cancelled_at' => 'datetime',
+            // F-053: copia del representante, escrita solo al borrarlo.
+            'representative_snapshot' => 'array',
         ];
     }
 
@@ -67,7 +69,10 @@ class Order extends Model
     public function getActivitylogOptions(): LogOptions
     {
         return LogOptions::defaults()
-            ->logOnly(['status', 'paid'])
+            // F-062 (api-A-14): `total` e `items` tambien se auditan (el
+            // recalculo de inscripciones y el borrado de participantes los
+            // cambian). Solo afecta a cambios futuros; no se reescribe nada.
+            ->logOnly(['status', 'paid', 'total', 'items'])
             ->logOnlyDirty()
             ->useLogName('order');
     }

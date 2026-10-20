@@ -21,4 +21,13 @@ class UserPolicy
     {
         return $adminUser->can('users.view');
     }
+
+    /**
+     * F-053: solo SUPER_ADMIN (records.delete). El borrado lo hace
+     * App\Actions\Admin\DeleteRepresentative (conserva ordenes y pagos).
+     */
+    public function delete(AdminUser $adminUser, User $representative): bool
+    {
+        return $adminUser->can('records.delete');
+    }
 }

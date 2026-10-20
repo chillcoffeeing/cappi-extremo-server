@@ -57,10 +57,14 @@ contenido son la misma pieza.
 **Salida:** expediente familiar completo.
 
 **Estado:** implementada (F-006). Ver `progress/impl_F-006.md`. `UserResource` (representantes)
-y `ParticipantResource` no tienen `create()`/`delete()` en sus Policies a propósito: esas cuentas
+y `ParticipantResource` no tienen `create()` en sus Policies a propósito: esas cuentas
 y fichas nacen del portal, no de un formulario admin en blanco. `EnrollmentResource` tampoco tiene
-página de creación por el mismo motivo (nace de `RegisterParticipantInscription`), aunque su
-Policy sí conserva `create()`/`delete()` para uso futuro (comandos, etc.). "Órdenes" y "pagos" del
+página de creación por el mismo motivo (nace de `RegisterParticipantInscription`). **F-053:**
+`UserPolicy`, `ParticipantPolicy`, `EnrollmentPolicy`, `OnboardingDraftPolicy` y
+`ParticipantCorrectionRequestPolicy` tienen `delete()` con `records.delete` (solo SUPER_ADMIN);
+`OrderPolicy` perdió su `delete()` (órdenes y pagos no se borran). Ver
+`06-flujos-y-auditoria.md` → Retención. **F-054:** botones "Eliminar" en Filament (fila, ficha y
+RelationManagers del expediente) que llaman a las Actions de F-053. "Órdenes" y "pagos" del
 árbol de expediente del representante ya estaban cubiertos por `PaymentsRelationManager`/
 `OrdersRelationManager`; el nodo "Actividad" del árbol de 06-flujos-y-auditoria.md no se
 implementó — instrumentar la actividad del propio representante con `spatie/laravel-activitylog`

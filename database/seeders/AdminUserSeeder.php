@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\AdminUser;
 use Illuminate\Database\Seeder;
+use Spatie\Permission\Models\Role;
 
 class AdminUserSeeder extends Seeder
 {
@@ -13,12 +14,18 @@ class AdminUserSeeder extends Seeder
      */
     public function run(): void
     {
-        AdminUser::updateOrCreate(
+        $admin = AdminUser::updateOrCreate(
             ['email' => 'admin@cappixtremo.com'],
             [
                 'name' => 'Admin Cappi Xtremo',
                 'password' => 'admin12345',
             ],
         );
+
+        // F-056 (api-C-1): antes lo hacía PermissionSeeder (que sí corre en
+        // prod). Requiere que PermissionSeeder haya creado el rol antes.
+        if (Role::where('name', 'SUPER_ADMIN')->where('guard_name', 'admin')->exists()) {
+            $admin->syncRoles(['SUPER_ADMIN']);
+        }
     }
 }

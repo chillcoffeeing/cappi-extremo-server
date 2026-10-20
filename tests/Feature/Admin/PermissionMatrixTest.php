@@ -29,15 +29,18 @@ class PermissionMatrixTest extends TestCase
                 'plans.view', 'plans.manage', 'plan_content.manage',
                 'participants.view', 'participants.edit',
                 'enrollments.view', 'enrollments.manage',
+                'corrections.manage',
             ]],
             'FINANZAS ve y gestiona pagos/ordenes/metodos/tienda/reportes' => ['FINANZAS', [
                 'admin.access', 'orders.view', 'orders.manage',
                 'payments.view', 'payments.approve', 'payments.reject',
+                'payments.receipts',
                 'payment_methods.manage', 'products.manage', 'reports.export',
             ]],
-            'SOPORTE ve/gestiona representantes y onboarding, ve participantes' => ['SOPORTE', [
+            'SOPORTE ve/gestiona representantes, onboarding y correcciones, ve participantes' => ['SOPORTE', [
                 'admin.access', 'users.view', 'users.edit',
                 'onboarding.view', 'onboarding.manage', 'participants.view',
+                'corrections.manage',
             ]],
             'LECTURA solo ve, nunca gestiona' => ['LECTURA', [
                 'admin.access', 'users.view', 'onboarding.view', 'plans.view',
@@ -53,6 +56,10 @@ class PermissionMatrixTest extends TestCase
         'enrollments.view', 'enrollments.manage', 'orders.view', 'orders.manage', 'payments.view',
         'payments.approve', 'payments.reject', 'payment_methods.manage', 'products.manage',
         'reports.export', 'audit.view', 'admin_users.manage',
+        // F-053: solo SUPER_ADMIN; ningun otro rol lo recibe.
+        'records.delete',
+        // F-062: correcciones (OPERACIONES, SOPORTE) y comprobantes (FINANZAS).
+        'corrections.manage', 'payments.receipts',
     ];
 
     #[DataProvider('roleGrantsProvider')]

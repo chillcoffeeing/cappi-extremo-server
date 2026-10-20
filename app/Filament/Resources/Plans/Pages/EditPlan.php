@@ -11,10 +11,10 @@ use App\Actions\Plans\StartPlan;
 use App\Actions\Plans\UpdatePlanProgress;
 use App\Exceptions\PlanTransitionException;
 use App\Filament\Resources\Plans\PlanResource;
+use App\Filament\Support\AdminDeleteActions;
 use App\Models\Plan;
 use Closure;
 use Filament\Actions\Action;
-use Filament\Actions\DeleteAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -37,7 +37,7 @@ class EditPlan extends EditRecord
             $this->reasonAction('finish', 'Finalizar', FinishPlan::class, fn (Plan $plan): bool => $plan->status === 'EN_CURSO'),
             $this->reasonAction('cancel', 'Cancelar', CancelPlan::class, fn (Plan $plan): bool => ! in_array($plan->status, ['FINALIZADO', 'CANCELADO'], true), 'danger'),
             $this->updateProgressAction(),
-            DeleteAction::make(),
+            AdminDeleteActions::plan(redirectToIndex: true),
         ];
     }
 

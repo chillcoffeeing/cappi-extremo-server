@@ -2,9 +2,9 @@
 
 namespace App\Filament\Resources\Plans\RelationManagers;
 
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\CreateAction;
-use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
@@ -68,7 +68,7 @@ class AnnouncementsRelationManager extends RelationManager
             ])
             ->recordActions([
                 EditAction::make(),
-                DeleteAction::make(),
+                AdminDeleteActions::announcement(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([

@@ -19,8 +19,10 @@ use Filament\Support\Icons\Heroicon;
 use Filament\Tables\Table;
 
 /**
- * Representantes del portal. Sin create() ni delete() en UserPolicy: las
- * cuentas se registran solo desde el portal y no se eliminan desde el admin.
+ * Representantes del portal. Sin create() en UserPolicy: las cuentas se
+ * registran solo desde el portal. F-054: solo SUPER_ADMIN (records.delete)
+ * puede eliminarlas, via App\Actions\Admin\DeleteRepresentative (ver
+ * App\Filament\Support\AdminDeleteActions).
  */
 class UserResource extends Resource
 {

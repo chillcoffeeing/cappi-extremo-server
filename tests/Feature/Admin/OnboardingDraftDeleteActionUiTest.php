@@ -13,10 +13,9 @@ use Tests\TestCase;
 
 /**
  * F-025: accion "Eliminar" en /admin/onboarding-drafts para poder borrar
- * casos de prueba de QA manual sin tocar la base de datos a mano. Gateada
- * con el permiso existente `onboarding.manage` (mismo que ya usa `update()`
- * en OnboardingDraftPolicy para las Actions de estado), sin agregar un
- * permiso nuevo ni tocar la matriz fija de PermissionMatrixTest.
+ * casos de prueba de QA manual sin tocar la base de datos a mano.
+ * F-053: el borrado pasa de `onboarding.manage` a `records.delete` (solo
+ * SUPER_ADMIN); OPERACIONES conserva `onboarding.manage` pero ya no borra.
  */
 class OnboardingDraftDeleteActionUiTest extends TestCase
 {
@@ -26,7 +25,7 @@ class OnboardingDraftDeleteActionUiTest extends TestCase
     {
         $this->seed(PermissionSeeder::class);
         $admin = AdminUser::factory()->create();
-        $admin->assignRole('OPERACIONES'); // tiene onboarding.manage
+        $admin->assignRole('SUPER_ADMIN'); // F-053: unico rol con records.delete
         $this->actingAs($admin, 'admin');
 
         $user = User::factory()->create();
@@ -44,7 +43,7 @@ class OnboardingDraftDeleteActionUiTest extends TestCase
     {
         $this->seed(PermissionSeeder::class);
         $admin = AdminUser::factory()->create();
-        $admin->assignRole('LECTURA'); // tiene onboarding.view pero no onboarding.manage
+        $admin->assignRole('OPERACIONES'); // F-053: tiene onboarding.manage pero no records.delete
         $this->actingAs($admin, 'admin');
 
         $user = User::factory()->create();

@@ -11,6 +11,7 @@ use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\User;
+use Database\Seeders\PaymentMethodSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +21,13 @@ use Tests\TestCase;
 class LinkOrderPaymentTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // F-062 (api-A-11): enlazar-pago exige un metodo activo del catalogo.
+        $this->seed(PaymentMethodSeeder::class);
+    }
 
     public function test_user_can_link_a_full_payment_to_their_order_and_download_the_receipt(): void
     {

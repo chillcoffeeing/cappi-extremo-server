@@ -31,7 +31,14 @@ class PaymentController extends Controller
 
     public function balance(): JsonResponse
     {
-        $ordersTotal = request()->user()->orders()->sum('total');
+        // F-059 (api-A-4/fe-A-11): una orden CANCELADA ya no se cobra, asi
+        // que su total no suma en `totalPagar`. Tampoco suman en
+        // `totalAbonado` los pagos aprobados de esa orden (si no, quedarian
+        // como "credito" contra otras ordenes que el admin sigue cobrando
+        // completas). Solo cambia la lectura: ordenes y pagos no se tocan.
+        $ordersTotal = request()->user()->orders()
+            ->where('status', '!=', 'CANCELADA')
+            ->sum('total');
         // F-002: todas las cargas de inscripción viven en órdenes (la
         // consolidada del onboarding + una orden por alta posterior, ambas
         // is_registration=true y ya recalculadas con el descuento hermanos).
@@ -46,7 +53,10 @@ class PaymentController extends Controller
                 ->join('enrollments', 'enrollments.participant_uuid', '=', 'participants.uuid')
                 ->sum('enrollments.total_amount');
         $total = $ordersTotal + $enrollmentsTotal;
-        $approved = request()->user()->payments()->where('status', 'APROBADO')->sum('amount');
+        $approved = request()->user()->payments()
+            ->where('status', 'APROBADO')
+            ->whereDoesntHave('order', fn ($query) => $query->where('status', 'CANCELADA'))
+            ->sum('amount');
 
         return response()->json([
             'totalPagar' => (float) $total,
@@ -168,6 +178,9 @@ class PaymentController extends Controller
             ->where('uuid', $payment)
             ->whereNotNull('receipt_path')
             ->firstOrFail();
+
+        // F-062 (api-A-12): archivo borrado o perdido en el disco -> 404, no 500.
+        abort_unless(Storage::disk('local')->exists($record->receipt_path), 404);
 
         return Storage::disk('local')->download($record->receipt_path, $record->receipt_name);
     }

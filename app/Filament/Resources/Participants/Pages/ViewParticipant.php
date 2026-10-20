@@ -4,6 +4,7 @@ namespace App\Filament\Resources\Participants\Pages;
 
 use App\Actions\Participants\MarkParticipantReviewed;
 use App\Filament\Resources\Participants\ParticipantResource;
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\ViewRecord;
@@ -32,6 +33,8 @@ class ViewParticipant extends ViewRecord
                     Notification::make()->title('Ficha marcada como revisada')->success()->send();
                     $this->fillForm();
                 }),
+            // F-054: solo SUPER_ADMIN (records.delete); usa DeleteParticipant.
+            AdminDeleteActions::participant(redirectToIndex: true),
         ];
     }
 

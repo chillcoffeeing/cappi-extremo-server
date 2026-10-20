@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\AdminUser;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -38,6 +37,18 @@ class PermissionSeeder extends Seeder
         'reports.export',
         'audit.view',
         'admin_users.manage',
+        // F-053: borrado fisico de representantes, participantes, inscripciones,
+        // borradores y correcciones. Solo SUPER_ADMIN (no esta en ROLE_PERMISSIONS).
+        'records.delete',
+        // F-062 (api-A-6): solicitar y resolver solicitudes de correccion de
+        // ficha sin poder editar participantes. SOPORTE lo tiene (doc 00 y 06:
+        // "Soporte gestiona solicitudes de correccion"). participants.edit
+        // tambien habilita (OPERACIONES).
+        'corrections.manage',
+        // F-062 (api-A-9): descargar comprobantes de pago en el panel. Solo
+        // roles financieros (01-arquitectura-y-seguridad: "Los comprobantes
+        // solo son accesibles a usuarios con permiso financiero").
+        'payments.receipts',
     ];
 
     /**
@@ -54,11 +65,13 @@ class PermissionSeeder extends Seeder
             'plans.view', 'plans.manage', 'plan_content.manage',
             'participants.view', 'participants.edit',
             'enrollments.view', 'enrollments.manage',
+            'corrections.manage',
         ],
         'FINANZAS' => [
             'admin.access',
             'orders.view', 'orders.manage',
             'payments.view', 'payments.approve', 'payments.reject',
+            'payments.receipts',
             'payment_methods.manage', 'products.manage',
             'reports.export',
         ],
@@ -66,7 +79,7 @@ class PermissionSeeder extends Seeder
             'admin.access',
             'users.view', 'users.edit',
             'onboarding.view', 'onboarding.manage',
-            'participants.view',
+            'participants.view', 'corrections.manage',
         ],
         'LECTURA' => [
             'admin.access',
@@ -88,7 +101,9 @@ class PermissionSeeder extends Seeder
             Role::findOrCreate($roleName, 'admin')->syncPermissions($permissions);
         }
 
-        $localAdmin = AdminUser::where('email', 'admin@cappixtremo.com')->first();
-        $localAdmin?->syncRoles(['SUPER_ADMIN']);
+        // F-056 (api-C-1): este seeder se corre en producción cuando hay
+        // permisos nuevos; ya NO promueve a nadie. Solo sincroniza permisos de
+        // roles; las asignaciones de rol de los admins existentes no se tocan.
+        // El rol del admin de desarrollo lo da AdminUserSeeder (solo local).
     }
 }

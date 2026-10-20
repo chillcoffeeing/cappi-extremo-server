@@ -19,8 +19,9 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->call(AdminUserSeeder::class);
+        // F-056: permisos/roles primero; AdminUserSeeder asigna SUPER_ADMIN al admin de desarrollo.
         $this->call(PermissionSeeder::class);
+        $this->call(AdminUserSeeder::class);
         $this->call(PaymentMethodSeeder::class);
 
         Plan::updateOrCreate(

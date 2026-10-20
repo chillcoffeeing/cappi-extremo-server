@@ -3,10 +3,14 @@
 namespace App\Actions\Onboarding;
 
 use App\Actions\Inscriptions\CalculateInscriptionTotal;
+use App\Actions\Inscriptions\RegisterParticipantInscription;
+use App\Actions\Payments\LinkOrderPayment;
 use App\Models\OnboardingDraft;
 use App\Models\Payment;
 use App\Models\PaymentMethod;
 use App\Models\Plan;
+use App\Models\User;
+use App\Support\Money;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -15,6 +19,8 @@ use Illuminate\Validation\ValidationException;
 
 class CompleteOnboarding
 {
+    public const ALREADY_COMPLETED_MESSAGE = 'Tu inscripción ya fue completada. Para agregar otro participante usa «Agregar participante» en el portal.';
+
     /**
      * F-035: `$receipt` es el comprobante del primer pago (multipart
      * `comprobante` en `POST /onboarding/{id}/complete`). Es OBLIGATORIO
@@ -42,17 +48,46 @@ class CompleteOnboarding
 
     private function complete(OnboardingDraft $draft, ?UploadedFile $receipt, ?string &$storedReceiptPath): void
     {
-        $required = ['cuenta', 'participantes', 'pago', 'adicionales', 'confirmacion'];
-        $completed = $draft->completed_steps ?? [];
-        $missing = array_values(array_diff($required, $completed));
-
-        if ($missing !== []) {
-            throw ValidationException::withMessages([
-                'steps' => ['Faltan pasos: '.implode(', ', $missing)],
-            ]);
-        }
-
         DB::transaction(function () use ($draft, $receipt, &$storedReceiptPath): void {
+            // F-059 (api-B-1): se bloquean el representante y luego el draft
+            // (mismo orden que RegisterParticipantInscription: User primero).
+            // Dos `complete` simultaneos del mismo usuario quedan en serie y
+            // el segundo ve el draft ya COMPLETADO.
+            $user = User::where('uuid', $draft->user_uuid)->lockForUpdate()->firstOrFail();
+            $draft = OnboardingDraft::whereKey($draft->getKey())->lockForUpdate()->firstOrFail();
+
+            // F-059 (api-A-3): la regla se basa en el estado del
+            // REPRESENTANTE. Mientras no haya completado su onboarding, su
+            // draft se completa (aunque venga en formato viejo o marcado
+            // COMPLETADO sin que el usuario lo este). Una vez COMPLETADO:
+            //  - el mismo draft COMPLETADO -> respuesta idempotente (200 con
+            //    el draft tal cual, sin crear nada): doble clic o reintento
+            //    tras un error de red;
+            //  - cualquier otro draft -> 422 (inscribia hijos sin orden que
+            //    los cubra). Los hijos nuevos van por POST /participantes
+            //    (RegisterParticipantInscription).
+            if ($user->onboarding_status === 'COMPLETADO') {
+                if ($draft->status === 'COMPLETADO') {
+                    return;
+                }
+
+                throw ValidationException::withMessages([
+                    'onboarding' => [self::ALREADY_COMPLETED_MESSAGE],
+                ]);
+            }
+
+            $required = ['cuenta', 'participantes', 'pago', 'adicionales', 'confirmacion'];
+            $completed = $draft->completed_steps ?? [];
+            $missing = array_values(array_diff($required, $completed));
+
+            if ($missing !== []) {
+                // fe-B-5: el mensaje explica que hacer (el portal, ademas,
+                // reenvia los pasos que tiene guardados y reintenta).
+                throw ValidationException::withMessages([
+                    'steps' => ['Faltan pasos por guardar ('.implode(', ', $missing).'). Revisa los pasos con «Atrás» y vuelve a confirmar.'],
+                ]);
+            }
+
             $participants = $draft->data['participantes']['participantes'] ?? [];
             $accountData = $draft->data['cuenta'] ?? [];
             $planId = (string) ($accountData['planId'] ?? '');
@@ -67,17 +102,17 @@ class CompleteOnboarding
                     continue;
                 }
 
-                $exists = $draft->user->participants()
+                $exists = $user->participants()
                     ->where('name', $participant['nombre'])
                     ->whereDate('birth_date', $participant['nacimiento'])
                     ->exists();
 
                 $model = $exists
-                    ? $draft->user->participants()
+                    ? $user->participants()
                         ->where('name', $participant['nombre'])
                         ->whereDate('birth_date', $participant['nacimiento'])
                         ->first()
-                    : $draft->user->participants()->create([
+                    : $user->participants()->create([
                         'name' => $participant['nombre'],
                         'birth_date' => $participant['nacimiento'],
                         'gender' => 'PREFIERO_NO_DECIR',
@@ -107,6 +142,18 @@ class CompleteOnboarding
                 $reportedAmount = $modality === 'cuotas'
                     ? (float) ($paymentData['montoAbonar'] ?? 0)
                     : $quote['total'];
+
+                // F-059 (api-B-5): el minimo del abono en cuotas tambien se
+                // valida en el servidor (antes solo el cliente). Mismo minimo
+                // que enlazar-pago; si el total es menor, basta con el total.
+                if ($modality === 'cuotas') {
+                    $minimum = min((float) LinkOrderPayment::MINIMUM_INSTALLMENT, (float) $quote['total']);
+                    if ($reportedAmount < $minimum) {
+                        throw ValidationException::withMessages([
+                            'montoAbonar' => ['El abono mínimo es '.Money::format($minimum).'. Vuelve al paso Pago y ajusta el monto.'],
+                        ]);
+                    }
+                }
                 $planName = $plan->name;
                 $sessionName = trim(($plan->starts_at?->format('Y-m-d') ?? '').' - '.($plan->ends_at?->format('Y-m-d') ?? ''));
                 // F-026: `paymentData['metodo']` ya no es un nombre visible
@@ -139,12 +186,31 @@ class CompleteOnboarding
                         'precio' => -$quote['descuentoTotal'],
                     ];
                 }
-                $registrationOrder = $draft->user->orders()
+                // F-059 (api-A-5): una orden de inscripcion CANCELADA no se
+                // reutiliza (no cubre plazas ni recibe el primer pago).
+                $registrationOrder = $user->orders()
                     ->where('is_registration', true)
+                    ->where('status', '!=', 'CANCELADA')
                     ->first();
+                $registrationOrderWasNew = $registrationOrder === null;
 
-                if (! $registrationOrder) {
-                    $registrationOrder = $draft->user->orders()->create([
+                if ($registrationOrder) {
+                    // F-062 (seguimiento ver_F-059 obs. 1): la familia ya tiene
+                    // una orden de inscripcion activa (p. ej. un admin le
+                    // devolvio onboarding_status=INCOMPLETO). Esa orden no se
+                    // re-precia ni suma plazas aqui:
+                    //  - las inscripciones existentes NO se tocan (antes
+                    //    `updateOrCreate` las devolvia a PENDIENTE_PAGO);
+                    //  - cada hijo sin inscripcion va por el alta normal
+                    //    (RegisterParticipantInscription), que le crea su
+                    //    plaza/orden y aplica el recalculo F-002.
+                    foreach ($validParticipants as $participant) {
+                        if (! $participant->enrollment()->exists()) {
+                            app(RegisterParticipantInscription::class)->handle($participant);
+                        }
+                    }
+                } else {
+                    $registrationOrder = $user->orders()->create([
                         'user_uuid' => $draft->user_uuid,
                         'ordered_at' => now()->toDateString(),
                         'items' => $items,
@@ -155,7 +221,7 @@ class CompleteOnboarding
                     ]);
                 }
 
-                foreach ($validParticipants as $participant) {
+                foreach (($registrationOrderWasNew ? $validParticipants : []) as $participant) {
                     $participant->enrollment()->updateOrCreate([], [
                         'plan_uuid' => $plan?->uuid,
                         'plan_name' => $planName,
@@ -247,7 +313,7 @@ class CompleteOnboarding
                 'status' => 'COMPLETADO',
                 'version' => $draft->version + 1,
             ]);
-            $draft->user()->update(['onboarding_status' => 'COMPLETADO']);
+            $user->update(['onboarding_status' => 'COMPLETADO']);
         });
     }
 }

@@ -97,6 +97,11 @@ class UploadsTest extends TestCase
         $user = User::factory()->create();
         Sanctum::actingAs($user);
         $order = $this->makeOrder($user, 60);
+        // F-062 (api-A-11): enlazar-pago exige un metodo activo del catalogo.
+        PaymentMethod::create([
+            'code' => 'met_zelle', 'type' => 'DIRECTO', 'name' => 'Zelle',
+            'description' => 'Zelle', 'data' => ['instrucciones' => '', 'detalle' => []], 'active' => true,
+        ]);
 
         $this->post("/api/ordenes/{$order->uuid}/enlazar-pago", [
             'monto' => 20,

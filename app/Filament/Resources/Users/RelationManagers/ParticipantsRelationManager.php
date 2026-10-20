@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Users\RelationManagers;
 
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\ViewAction;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Schemas\Schema;
@@ -11,7 +12,9 @@ use Filament\Tables\Table;
 
 /**
  * Solo lectura desde el expediente del representante: la ficha se edita en
- * ParticipantResource, no aqui.
+ * ParticipantResource, no aqui. F-054: "Eliminar" (solo SUPER_ADMIN) es una
+ * Action propia: el RelationManager es de solo lectura y Filament deniega ahi
+ * el DeleteAction estandar.
  */
 class ParticipantsRelationManager extends RelationManager
 {
@@ -37,6 +40,8 @@ class ParticipantsRelationManager extends RelationManager
             ->headerActions([])
             ->recordActions([
                 ViewAction::make()->url(fn ($record): string => route('filament.admin.resources.participants.view', $record)),
+                // F-054: solo SUPER_ADMIN (records.delete).
+                AdminDeleteActions::participant(),
             ]);
     }
 }

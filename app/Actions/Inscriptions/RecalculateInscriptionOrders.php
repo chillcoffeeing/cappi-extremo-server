@@ -4,6 +4,7 @@ namespace App\Actions\Inscriptions;
 
 use App\Models\Plan;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 
 // Recálculo retroactivo (decisión F-002): al crecer la familia, TODAS las
 // órdenes de inscripción previas se re-precian con el descuento hermanos según
@@ -20,7 +21,24 @@ class RecalculateInscriptionOrders
 {
     public function handle(User $user): void
     {
-        $orders = $user->orders()->where('is_registration', true)->get();
+        // F-059 (api-B-2): las ordenes se leen bloqueadas (en orden de id)
+        // para que un ApprovePayment concurrente no quede pisado con el `paid`
+        // viejo. Los llamadores (RegisterParticipantInscription,
+        // DeleteParticipant) ya abrieron la transaccion y bloquearon al User
+        // antes; si se llama suelta, esta transaccion la abre aqui.
+        DB::transaction(fn () => $this->recalculate($user));
+    }
+
+    private function recalculate(User $user): void
+    {
+        // F-059 (api-A-5): una orden CANCELADA no se re-precia: conserva sus
+        // items, total y estado tal como quedaron al cancelarla.
+        $orders = $user->orders()
+            ->where('is_registration', true)
+            ->where('status', '!=', 'CANCELADA')
+            ->orderBy('id')
+            ->lockForUpdate()
+            ->get();
         if ($orders->isEmpty()) {
             $this->syncEnrollments($user);
 
@@ -55,7 +73,10 @@ class RecalculateInscriptionOrders
                 ]];
             }
 
-            $saldo = round((float) $order->paid  - $total, 4);
+            // F-054 (bug fix): el saldo es total - abonado. Antes estaba
+            // invertido (abonado - total), y una orden sin pagos quedaba PAGADA
+            // al re-preciarse. Las CANCELADA ya no llegan aqui (F-059).
+            $saldo = round($total - (float) $order->paid, 4);
 
             $order->update([
                 'items' => $items,

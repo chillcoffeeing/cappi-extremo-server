@@ -22,8 +22,6 @@ class OrderPolicy
         return $adminUser->can('orders.manage');
     }
 
-    public function delete(AdminUser $adminUser, Order $order): bool
-    {
-        return $adminUser->can('orders.manage');
-    }
+    // F-053: sin delete(). Las ordenes nunca se borran (registro
+    // administrativo); al borrar un representante quedan con user_uuid NULL.
 }

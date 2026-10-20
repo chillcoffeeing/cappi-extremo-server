@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\Orders\CreateStoreOrder;
 use App\Actions\Payments\LinkOrderPayment;
 use App\Exceptions\PaymentActionException;
 use App\Http\Controllers\Controller;
@@ -20,19 +21,10 @@ class OrderController extends Controller
         return OrderResource::collection($orders);
     }
 
-    public function store(StoreOrderRequest $request): JsonResponse
+    public function store(StoreOrderRequest $request, CreateStoreOrder $action): JsonResponse
     {
-        $items = $request->validated('items');
-        $total = collect($items)->sum(fn (array $item): float => $item['qty'] * $item['precio']);
-        $order = request()->user()->orders()->create([
-            'user_uuid' => request()->user()->uuid,
-            'ordered_at' => now()->toDateString(),
-            'items' => $items,
-            'total' => $total,
-            'paid' => 0,
-            'status' => 'PENDIENTE_PAGO',
-            'is_registration' => false,
-        ]);
+        // F-058: precio, nombre y variante salen del catálogo (Action).
+        $order = $action->handle($request->user(), $request->validated('items'));
 
         return response()->json(['data' => (new OrderResource($order))->resolve($request)], 201);
     }

@@ -19,7 +19,7 @@ El frontend conserva el access token en memoria y nunca debe guardarlo en `local
 - `POST /api/auth/refresh`: recibe `refreshToken` y devuelve un par nuevo.
 - `POST /api/auth/logout`: requiere Bearer token y responde `204`.
 - `POST /api/auth/forgot-password`: respuesta neutra `204` para no revelar si existe el email.
-- `POST /api/auth/reset-password`: consume token de recuperación.
+- `POST /api/auth/reset-password`: consume token de recuperación (transacción con lock), guarda la contraseña hasheada, invalida los demás enlaces de reset y cierra todas las sesiones del usuario (F-056).
 - `POST /api/auth/verify-email`: consume token de verificación.
 
 ## Implementación Laravel
@@ -29,6 +29,8 @@ El frontend conserva el access token en memoria y nunca debe guardarlo en `local
 - Validar credenciales y payloads con Form Requests.
 - Nunca incluir hashes, tokens almacenados ni datos internos en Resources.
 - Las respuestas de autenticación deben conservar exactamente los nombres del contrato TypeScript.
+- Rate limiting en todas las rutas públicas de `/api/auth/*` (limiters `portal-*` en `AppServiceProvider`; 429 con `{message}`). Límites y nota de proxies en `api-contract.md` → "Seguridad de cuentas (F-056)".
+- Nunca escribir tokens de reset/verificación en el log.
 
 ## Onboarding
 

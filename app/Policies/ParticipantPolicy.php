@@ -21,4 +21,10 @@ class ParticipantPolicy
     {
         return $adminUser->can('participants.edit');
     }
+
+    /** F-053: solo SUPER_ADMIN. Ver App\Actions\Admin\DeleteParticipant. */
+    public function delete(AdminUser $adminUser, Participant $participant): bool
+    {
+        return $adminUser->can('records.delete');
+    }
 }

@@ -16,7 +16,13 @@ class Payment extends Model
 
     protected function casts(): array
     {
-        return ['paid_at' => 'date:Y-m-d', 'amount' => 'decimal:4', 'reviewed_at' => 'datetime'];
+        return [
+            'paid_at' => 'date:Y-m-d',
+            'amount' => 'decimal:4',
+            'reviewed_at' => 'datetime',
+            // F-053: copia del representante, escrita solo al borrarlo.
+            'representative_snapshot' => 'array',
+        ];
     }
 
     public function user(): BelongsTo

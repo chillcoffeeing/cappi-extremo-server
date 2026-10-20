@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders\Schemas;
 
+use App\Filament\Support\RepresentativeDisplay;
 use Filament\Forms\Components\Placeholder;
 use Filament\Infolists\Components\RepeatableEntry;
 use Filament\Infolists\Components\TextEntry;
@@ -24,7 +25,7 @@ class OrderForm
             ->components([
                 Placeholder::make('representative')
                     ->label('Representante')
-                    ->content(fn ($record): string => $record?->user?->name ?? '—'),
+                    ->content(fn ($record): string => RepresentativeDisplay::full($record)),
                 Placeholder::make('type')
                     ->label('Tipo')
                     ->content(fn ($record): string => $record?->is_registration ? 'Inscripción' : 'Tienda'),

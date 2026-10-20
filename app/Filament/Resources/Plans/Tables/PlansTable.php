@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Plans\Tables;
 
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
@@ -42,10 +43,14 @@ class PlansTable
             ])
             ->recordActions([
                 EditAction::make(),
+                AdminDeleteActions::plan(),
             ])
             ->toolbarActions([
                 BulkActionGroup::make([
-                    DeleteBulkAction::make(),
+                    // F-054 (C-5): visible con deleteAny; cada registro se
+                    // re-autoriza con la policy delete() (un plan con
+                    // inscripciones se omite y se avisa).
+                    DeleteBulkAction::make()->authorizeIndividualRecords('delete'),
                 ]),
             ]);
     }

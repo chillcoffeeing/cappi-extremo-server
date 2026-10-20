@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources;
 
+use App\Support\PublicPhoto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Storage;
 
 class RepresentativeResource extends JsonResource
 {
@@ -19,9 +19,7 @@ class RepresentativeResource extends JsonResource
                 'email' => $this->email,
                 'telefono' => $this->phone ?? '',
                 'documento' => $this->identification ?? '',
-                'fotoUrl' => $this->photo_url
-                    ? rtrim(config('app.url'), '/').Storage::url($this->photo_url)
-                    : null,
+                'fotoUrl' => PublicPhoto::url($this->photo_url),
                 'relacion' => $this->relationship ?? '',
             ],
             'encargadoRetiro' => $this->pickup_contact,

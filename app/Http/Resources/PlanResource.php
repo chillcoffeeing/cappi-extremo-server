@@ -31,8 +31,15 @@ class PlanResource extends JsonResource
             // `plans.days` hasta migrar el portal a la estructura admin
             // (plan_days/plan_day_activities). Ver
             // api/docs/backoffice/02-datos-y-migraciones.md.
+            // F-063 (fe-A-9): el portal ya consume `dias`. Solo van los dias
+            // marcados "Visible en el portal" en el admin, ordenados por
+            // `sort_order` y numero de dia. Si el plan tiene dias estructurados
+            // (aunque esten todos ocultos) ya no se cae al JSON legado.
             'dias' => $this->relationLoaded('planDays') && $this->planDays->isNotEmpty()
-                ? $this->planDays->map(fn ($day): array => [
+                ? $this->planDays
+                    ->filter(fn ($day): bool => $day->is_visible !== false)
+                    ->sortBy([['sort_order', 'asc'], ['day_number', 'asc']])
+                    ->map(fn ($day): array => [
                     'numeroDia' => $day->day_number,
                     'fecha' => $day->date?->format('Y-m-d'),
                     'titulo' => $day->title,

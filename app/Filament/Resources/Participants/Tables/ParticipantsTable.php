@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Participants\Tables;
 
+use App\Filament\Support\AdminDeleteActions;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -26,6 +27,8 @@ class ParticipantsTable
             ])
             ->recordActions([
                 ViewAction::make(),
+                // F-054: solo SUPER_ADMIN (records.delete).
+                AdminDeleteActions::participant(),
             ]);
     }
 }

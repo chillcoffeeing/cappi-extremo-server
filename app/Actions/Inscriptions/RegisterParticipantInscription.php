@@ -4,6 +4,7 @@ namespace App\Actions\Inscriptions;
 
 use App\Models\Participant;
 use App\Models\Plan;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
@@ -25,9 +26,14 @@ class RegisterParticipantInscription
             return;
         }
 
-        $user = $participant->user;
+        DB::transaction(function () use ($participant, $plan): void {
+            // F-059 (api-B-2): el representante se bloquea PRIMERO. Dos altas
+            // simultaneas de la misma familia quedan en serie (la segunda ve
+            // la orden que creo la primera) y el orden de locks es siempre
+            // User -> orders (RecalculateInscriptionOrders), el mismo que
+            // CompleteOnboarding. Asi no hay ciclos de espera entre ellas.
+            $user = User::where('uuid', $participant->user_uuid)->lockForUpdate()->firstOrFail();
 
-        DB::transaction(function () use ($participant, $plan, $user): void {
             $this->ensureEnrollment($participant, $plan);
             $this->ensureOrderCoversFamily($user, $plan);
             $this->recalculate->handle($user);
@@ -51,10 +57,15 @@ class RegisterParticipantInscription
         ]);
     }
 
-    private function ensureOrderCoversFamily($user, Plan $plan): void
+    private function ensureOrderCoversFamily(User $user, Plan $plan): void
     {
+        // F-059 (api-A-5): las plazas de una orden CANCELADA no cuentan como
+        // cubiertas (antes un hijo nuevo quedaba inscrito sin orden).
         $covered = (int) $user->orders()
             ->where('is_registration', true)
+            ->where('status', '!=', 'CANCELADA')
+            ->orderBy('id')
+            ->lockForUpdate()
             ->get()
             ->reduce(function (int $carry, $order): int {
                 $covered = 0;

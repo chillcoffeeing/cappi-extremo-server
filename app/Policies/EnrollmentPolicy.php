@@ -17,8 +17,9 @@ class EnrollmentPolicy
         return $adminUser->can('enrollments.view');
     }
 
+    /** F-053: solo SUPER_ADMIN. Ver App\Actions\Admin\DeleteEnrollment. */
     public function delete(AdminUser $adminUser, Enrollment $enrollment): bool
     {
-        return $adminUser->can('enrollments.manage');
+        return $adminUser->can('records.delete');
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources\Orders\Tables;
 
+use App\Filament\Support\RepresentativeDisplay;
 use Filament\Actions\ViewAction;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
@@ -15,7 +16,7 @@ class OrdersTable
         return $table
             ->defaultSort('ordered_at', 'desc')
             ->columns([
-                TextColumn::make('user.name')->label('Representante')->searchable(),
+                RepresentativeDisplay::column(),
                 TextColumn::make('is_registration')->label('Tipo')->formatStateUsing(fn (bool $state): string => $state ? 'Inscripción' : 'Tienda')->badge(),
                 TextColumn::make('total')->label('Total')->money('USD')->sortable(),
                 TextColumn::make('paid')->label('Abonado')->money('USD'),
@@ -34,6 +35,8 @@ class OrdersTable
                     'PAGADA' => 'Pagada',
                     'CANCELADA' => 'Cancelada',
                 ]),
+                // F-054: ordenes de representantes eliminados (user_uuid NULL).
+                RepresentativeDisplay::withoutRepresentativeFilter(),
             ])
             ->recordActions([
                 ViewAction::make()->label('Ver detalle'),

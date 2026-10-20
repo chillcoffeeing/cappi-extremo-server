@@ -19,7 +19,9 @@ class RefreshAuthTokens
                 ->lockForUpdate()
                 ->first();
 
-            if (! $refresh || $refresh->revoked_at || $refresh->expires_at->isPast()) {
+            // F-053 (C-2): un refresh token huerfano (usuario borrado antes de que
+            // la FK fuera cascadeOnDelete) responde 401, no 500.
+            if (! $refresh || $refresh->revoked_at || $refresh->expires_at->isPast() || ! $refresh->user) {
                 throw new RuntimeException('Sesion expirada');
             }
 
