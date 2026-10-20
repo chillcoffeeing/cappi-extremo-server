@@ -27,7 +27,7 @@ PREV="$(git rev-parse HEAD)"
 [ "$CHECK_RESULT" = PASS ] || abort "El último ensayo no pasó"
 [ "$CHECK_TARGET" = "$TARGET" ] || abort "origin/$BRANCH cambió desde el ensayo ($CHECK_TARGET -> $TARGET): vuelve a ensayar"
 [ "$CHECK_SEEDS" = "${SEEDS:-}" ] || abort "Los seeders pedidos (${SEEDS:-ninguno}) no son los del ensayo (${CHECK_SEEDS:-ninguno})"
-[ -z "$(git status --porcelain --untracked-files=no)" ] || abort "Hay archivos modificados en el servidor"
+[ -z "$(g status --porcelain --untracked-files=no)" ] || abort "Hay archivos modificados en el servidor"
 if [ "$PREV" = "$TARGET" ] && [ "${PENDING_COUNT:-0}" = 0 ] && [ -z "${SEEDS:-}" ]; then
   pass "Producción ya está en $(git log --oneline -1)"; summary; exit 0
 fi
@@ -54,7 +54,7 @@ stay_down() {
 }
 
 step "Código"
-git merge -q --ff-only "origin/$BRANCH" || { [ "$NEEDS_DOWN" = 1 ] && artisan up >/dev/null; abort "git merge --ff-only falló (nada cambió)"; }
+g merge -q --ff-only "origin/$BRANCH" || { [ "$NEEDS_DOWN" = 1 ] && artisan up >/dev/null; abort "git merge --ff-only falló (nada cambió)"; }
 pass "$(git log --oneline -1)"
 
 if [ "$COMPOSER_CHANGED" = 1 ]; then

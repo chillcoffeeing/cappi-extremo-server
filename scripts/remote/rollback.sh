@@ -35,7 +35,7 @@ if [ "$N_MIGS" -gt 0 ] && [ "${ROLLBACK_MIGRATIONS:-0}" = 1 ]; then
     || { fail "migrate:rollback falló: el sitio sigue en mantenimiento; restaurar el respaldo $BACKUP"; summary; exit 1; }
 fi
 
-git reset -q --hard "$PREV" && pass "código en $(git log --oneline -1)" || fail "git reset falló"
+g reset -q --hard "$PREV" && pass "código en $(git log --oneline -1)" || fail "git reset falló"
 if [ -n "$COMPOSER_CHANGED" ]; then
   composer_run install --no-dev --optimize-autoloader --no-interaction --no-progress >/dev/null 2>&1 && pass "composer install" || fail "composer install falló"
 fi

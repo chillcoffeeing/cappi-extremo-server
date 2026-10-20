@@ -49,12 +49,22 @@ setenv() {
 
 artisan() { "$PHP" artisan "$@"; }
 
+# En este hosting composer no está en el PATH de una sesión SSH no
+# interactiva: se usa el composer.phar que vive en la carpeta del API (fuera
+# de git) u otras rutas típicas de cPanel.
 composer_run() {
-  local bin
-  bin="$(command -v composer || true)"
-  [ -n "$bin" ] || { fail "composer no está en el PATH del servidor"; return 1; }
+  local bin="" c
+  for c in "${COMPOSER_BIN:-}" "$(command -v composer || true)" "$APP/composer.phar" \
+           /opt/cpanel/composer/bin/composer "$HOME/composer.phar" "$HOME/bin/composer"; do
+    [ -n "$c" ] && [ -f "$c" ] && { bin="$c"; break; }
+  done
+  [ -n "$bin" ] || { fail "no encuentro composer (ni composer.phar en $APP)"; return 1; }
   "$PHP" -d memory_limit=-1 "$bin" "$@"
 }
+
+# git sin contar cambios de permisos (chmod -R 775 storage bootstrap/cache
+# los marca como modificados aunque el contenido sea el mismo).
+g() { git -c core.fileMode=false "$@"; }
 
 # Credenciales MySQL de producción en un archivo de opciones temporal
 # (chmod 600): la contraseña nunca va en la línea de comandos.

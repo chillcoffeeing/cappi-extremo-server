@@ -60,7 +60,7 @@ step "Producción: ~/${API_DIR#/}"
 cd "$APP" || { fail "No se pudo entrar a $APP"; finish; }
 [ -f .env ] || { fail "Falta $APP/.env"; finish; }
 
-DIRTY="$(git status --porcelain --untracked-files=no)"
+DIRTY="$(g status --porcelain --untracked-files=no)"
 if [ -z "$DIRTY" ]; then pass "sin cambios hechos a mano en el servidor"
 else fail "hay archivos modificados en el servidor (alguien editó código en producción):"; echo "$DIRTY" | sed 's/^/           /'; fi
 
@@ -136,11 +136,12 @@ else
   command -v uapi >/dev/null 2>&1 || { fail "uapi no disponible: crea una base vacía en cPanel y pásala con DRYRUN_DB"; finish; }
   DRY_DB="${CPUSER}_cappidry"
   uapi Mysql delete_database name="$DRY_DB" >/dev/null 2>&1 || true   # resto de un ensayo cortado
-  if ! uapi Mysql create_database name="$DRY_DB" | grep -qE '^\s*status: 1'; then
+  # 2>/dev/null: los hooks de Namecheap escriben errores propios en stderr aunque la base se cree.
+  if ! uapi Mysql create_database name="$DRY_DB" 2>/dev/null | grep -qE '^\s*status: 1'; then
     fail "uapi no pudo crear la base $DRY_DB (¿límite de bases de la cuenta?)"; finish
   fi
   CREATED_DB="$DRY_DB"
-  if ! uapi Mysql set_privileges_on_database user="$DB_USER" database="$DRY_DB" privileges=ALL%20PRIVILEGES | grep -qE '^\s*status: 1'; then
+  if ! uapi Mysql set_privileges_on_database user="$DB_USER" database="$DRY_DB" privileges=ALL%20PRIVILEGES 2>/dev/null | grep -qE '^\s*status: 1'; then
     fail "uapi no pudo dar permisos a $DB_USER sobre $DRY_DB"; finish
   fi
 fi
